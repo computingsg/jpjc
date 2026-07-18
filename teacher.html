@@ -17,25 +17,51 @@
     .wrap{max-width:1200px;margin:0 auto;padding:28px 20px 60px}
     .hero,.card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
     .hero{padding:24px}
-    .hero h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem)}
+    .hero h1{margin:0;font-size:clamp(1.6rem,3vw,2.4rem)}
     .hero p{margin:10px 0 0;color:var(--mut)}
     .row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin-top:18px}
     .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:var(--bg3);border:1px solid var(--line);color:var(--mut);font-size:.92rem}
     .btn{border:none;border-radius:10px;padding:10px 16px;cursor:pointer;font:inherit;font-weight:700;background:var(--accent);color:#07121a}
     .btn.secondary{background:transparent;border:1px solid var(--line);color:var(--txt)}
-    .card{padding:20px}
+    .card{padding:20px;margin-top:18px}
+    .card h2{margin:0 0 12px;font-size:1.15rem}
     .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
     .meta span{font-size:.86rem;color:var(--mut);background:var(--bg3);padding:6px 10px;border-radius:999px}
-    .responses{margin-top:24px;display:grid;gap:18px}
     .empty,.error{margin-top:20px;padding:18px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);color:var(--mut)}
     .error{border-color:rgba(248,98,77,.4);color:#ffd4cc}
     a{color:var(--accent)}
+
+    .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+    .tile{background:var(--bg3);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+    .tile .v{font-size:1.6rem;font-weight:800}
+    .tile .l{font-size:.8rem;color:var(--mut);margin-top:2px}
+
+    .controls{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:16px}
+    .controls input[type=search]{flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--line);border-radius:10px;color:var(--txt);font:inherit;padding:9px 13px}
+    .controls label{color:var(--mut);font-size:.9rem;display:flex;gap:7px;align-items:center;cursor:pointer}
+
+    table{width:100%;border-collapse:collapse;margin-top:10px;font-size:.92rem}
+    th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+    th{color:var(--mut);font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;user-select:none}
+    th.sortable{cursor:pointer}
+    th.sortable:hover{color:var(--txt)}
+    th .arrow{font-size:.7rem;margin-left:4px}
+    tr.rowlink:hover td{background:rgba(124,140,255,.06)}
+    td.num,th.num{text-align:right}
+    .chiplist{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .chip{font-size:.84rem;background:var(--bg3);border:1px solid var(--line);border-radius:999px;padding:5px 11px;color:var(--mut)}
+    .chip.bad{border-color:rgba(248,98,77,.4);color:#ffb4a8}
+    .chip.good{border-color:rgba(63,185,80,.4);color:#7ee787}
+    .pcell{display:flex;align-items:center;gap:8px}
+    .minibar{width:70px;height:6px;border-radius:99px;background:var(--bg3);overflow:hidden;flex:none}
+    .minibar>div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+    .qtext{color:var(--mut);font-size:.85rem}
+    .itemlabel{white-space:nowrap;font-weight:600}
 
     .progress-line{display:flex;align-items:center;gap:12px;margin-top:14px}
     .pbar{flex:1;height:8px;border-radius:999px;background:var(--bg3);overflow:hidden}
     .pbar>div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
     .plabel{font-size:.85rem;color:var(--mut);white-space:nowrap}
-
     .topic{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
     .topic h3{margin:0 0 10px;font-size:1rem;color:var(--accent2)}
     .ans{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-bottom:8px;font-size:.92rem}
@@ -54,25 +80,77 @@
     details.raw summary{cursor:pointer;color:var(--mut);font-size:.85rem}
     pre{margin:10px 0 0;padding:14px;border-radius:12px;background:#0a0f14;border:1px solid var(--line);overflow:auto;color:#d6e2ef;font-size:.8rem}
     .nothing{color:var(--mut);font-size:.9rem;font-style:italic}
+    .hidden{display:none!important}
   </style>
 </head>
 <body>
   <div class="wrap">
     <section class="hero">
       <h1>Teacher Review Dashboard</h1>
-      <p>Review every saved response for the Technology &amp; Ethics module. Access is limited to allowlisted teacher accounts.</p>
+      <p>Class overview and individual responses for the Technology &amp; Ethics module. Access is limited to allowlisted teacher accounts.</p>
       <div class="row">
         <div class="pill" id="teacherStatus">Checking teacher access...</div>
         <div class="row" style="margin-top:0">
           <a class="btn secondary" href="technology-and-ethics.html" style="text-decoration:none">Back to Module</a>
-          <button class="btn" id="refreshBtn" type="button">Refresh Responses</button>
+          <button class="btn" id="refreshBtn" type="button">Refresh</button>
         </div>
       </div>
     </section>
 
     <div id="errorBox" class="error" hidden></div>
-    <div id="emptyBox" class="empty" hidden>No saved student responses yet.</div>
-    <section id="responses" class="responses"></section>
+    <div id="emptyBox" class="empty" hidden>No students have signed in yet.</div>
+
+    <div id="overviewView">
+      <div class="card">
+        <h2>Class at a glance</h2>
+        <div class="tiles" id="tiles"></div>
+        <div class="controls">
+          <input type="search" id="searchBox" placeholder="Filter students by name or email...">
+          <label><input type="checkbox" id="inclTeachers" checked> Include teacher accounts</label>
+        </div>
+        <div id="notAttemptedWrap" class="hidden">
+          <h2 style="margin-top:18px">Signed in but not attempted</h2>
+          <div class="chiplist" id="notAttempted"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Question analysis</h2>
+        <div id="extremes"></div>
+        <table id="itemTable">
+          <thead><tr>
+            <th class="sortable" data-key="order">Item<span class="arrow"></span></th>
+            <th>Question</th>
+            <th class="sortable num" data-key="attempted">Attempted<span class="arrow"></span></th>
+            <th class="sortable num" data-key="firstPct">First-try correct<span class="arrow"></span></th>
+            <th class="sortable num" data-key="evenPct">Correct overall<span class="arrow"></span></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Students</h2>
+        <table id="studentTable">
+          <thead><tr>
+            <th class="sortable" data-key="name">Name<span class="arrow"></span></th>
+            <th class="sortable num" data-key="done">Progress<span class="arrow"></span></th>
+            <th class="sortable num" data-key="mcqFirst">Quiz first-try<span class="arrow"></span></th>
+            <th class="sortable num" data-key="chScore">Check score<span class="arrow"></span></th>
+            <th class="sortable" data-key="updated">Last active<span class="arrow"></span></th>
+            <th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="detailView" class="hidden">
+      <div class="card">
+        <p style="margin:0 0 10px"><a href="#" id="backLink">&larr; Back to class overview</a></p>
+        <div id="detailContent"></div>
+      </div>
+    </div>
   </div>
 
   <script src="content-data.js"></script>
@@ -81,45 +159,248 @@
     const teacherStatus = document.getElementById("teacherStatus");
     const errorBox = document.getElementById("errorBox");
     const emptyBox = document.getElementById("emptyBox");
-    const responsesEl = document.getElementById("responses");
     const refreshBtn = document.getElementById("refreshBtn");
+    const overviewView = document.getElementById("overviewView");
+    const detailView = document.getElementById("detailView");
 
-    function showError(message){ errorBox.hidden=false; errorBox.textContent=message; }
+    function showError(m){ errorBox.hidden=false; errorBox.textContent=m; }
     function clearError(){ errorBox.hidden=true; errorBox.textContent=""; }
     function escapeHtml(v){
       return String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
     }
-
     const schemeSum = q => q.scheme.reduce((x,s)=>x+s.m,0);
     const TOTAL_ACTIVITIES = MODULES.reduce((n,m)=>n+(m.activities||[]).length+((m.quiz&&m.quiz.length)?1:0),0) + 1;
-
+    const TOTAL_MCQS = MODULES.reduce((n,m)=>n+(m.quiz||[]).filter(q=>q.type==='mcq').length,0);
+    const CH_TOTAL = CHALLENGE.sectionA.length + CHALLENGE.sectionB.reduce((x,q)=>x+schemeSum(q),0);
     function pickLetter(i){ return String.fromCharCode(65+i); }
+    function pct(n,d){ return d? Math.round(n/d*100) : 0; }
 
+    function attemptsOf(saved){
+      if(!saved) return 0;
+      if(Number.isFinite(saved.attempts)) return saved.attempts;
+      const wrongs = Array.isArray(saved.wrongIndices)?saved.wrongIndices.length:(saved.correct===false?1:0);
+      return wrongs + (saved.correct?1:0);
+    }
     function attemptBadge(saved){
-      const wrongs = Array.isArray(saved.wrongIndices) ? saved.wrongIndices.length : (saved.correct===false ? 1 : 0);
-      const att = Number.isFinite(saved.attempts) ? saved.attempts : wrongs + (saved.correct ? 1 : 0);
+      const att = attemptsOf(saved) || 1;
       if(saved.correct){
         return '<span class="badge ok">'+(att<=1?'Correct (first try)':'Correct (attempt '+att+')')+'</span>';
       }
       return '<span class="badge no">Not yet correct ('+att+' attempt'+(att===1?'':'s')+')</span>';
     }
 
-    // Build a readable report for one student's state using the shared content data.
+    function hasWork(state){
+      if(!state) return false;
+      if(state.completedKeys && Object.values(state.completedKeys).some(Boolean)) return true;
+      const r=state.responses||{};
+      if(Object.keys(r.scenarios||{}).length) return true;
+      if(Object.keys(r.matches||{}).length) return true;
+      const q=r.quiz||{};
+      if(Object.keys(q.mcq||{}).length || Object.keys(q.short||{}).length) return true;
+      if((r.challenge||{}).started) return true;
+      return false;
+    }
+
+    function studentMetrics(state){
+      const done = Object.values((state&&state.completedKeys)||{}).filter(Boolean).length;
+      const r=(state&&state.responses)||{};
+      const mcqStore=(r.quiz||{}).mcq||{};
+      let mcqFirst=0, mcqEven=0, mcqTried=0;
+      MODULES.forEach(m=>(m.quiz||[]).forEach((q,qi)=>{
+        if(q.type!=='mcq')return;
+        const s=mcqStore[m.id+'-quiz:q'+qi];
+        if(!s || attemptsOf(s)===0) return;
+        mcqTried++;
+        if(s.correct){ mcqEven++; if(attemptsOf(s)<=1) mcqFirst++; }
+      }));
+      const ch=r.challenge||{};
+      return {
+        done, donePct:pct(done,TOTAL_ACTIVITIES),
+        mcqTried, mcqFirst, mcqEven,
+        chSubmitted:Boolean(ch.submitted),
+        chScore:Number.isFinite(ch.score)?ch.score:null
+      };
+    }
+
+    // ---- item definitions for question analysis ----
+    function buildItemDefs(){
+      const items=[]; let order=0;
+      MODULES.forEach(m=>{
+        (m.activities||[]).forEach((act,ai)=>{
+          const actKey=m.id+'-act'+ai;
+          if(act.type==='scenario'){
+            act.cards.forEach((card,ci)=>{
+              items.push({order:order++, label:'T'+m.num+' Scenario', text:card.stem, kind:'choice',
+                extract:s=>{ const v=(((s||{}).responses||{}).scenarios||{})[actKey+':card'+ci];
+                  if(!v||attemptsOf(v)===0) return null;
+                  return {first:Boolean(v.correct&&attemptsOf(v)<=1), even:v.correct?1:0}; }});
+            });
+          } else if(act.type==='match'){
+            const total=act.targets.length;
+            items.push({order:order++, label:'T'+m.num+' Matching', text:act.title, kind:'match',
+              extract:s=>{ const v=(((s||{}).responses||{}).matches||{})[actKey];
+                if(!v||!v.placement||!Object.keys(v.placement).length) return null;
+                const frac=v.checked&&Number.isFinite(v.correctCount)?v.correctCount/total:null;
+                return {first:null, even:frac}; }});
+          }
+        });
+        (m.quiz||[]).forEach((q,qi)=>{
+          if(q.type!=='mcq') return;
+          items.push({order:order++, label:'T'+m.num+' Quiz', text:q.q, kind:'choice',
+            extract:s=>{ const v=((((s||{}).responses||{}).quiz||{}).mcq||{})[m.id+'-quiz:q'+qi];
+              if(!v||attemptsOf(v)===0) return null;
+              return {first:Boolean(v.correct&&attemptsOf(v)<=1), even:v.correct?1:0}; }});
+        });
+      });
+      CHALLENGE.sectionA.forEach((q,i)=>{
+        items.push({order:order++, label:'Check A'+(i+1), text:q.q, kind:'oneshot',
+          extract:s=>{ const ch=((s||{}).responses||{}).challenge||{};
+            if(!ch.submitted) return null;
+            const sel=(ch.sectionA||{})[i] ?? (ch.sectionA||{})[String(i)];
+            if(!Number.isInteger(sel)) return null;
+            const ok=sel===q.ans?1:0;
+            return {first:Boolean(ok), even:ok}; }});
+      });
+      return items;
+    }
+    const ITEM_DEFS = buildItemDefs();
+
+    // ---- state ----
+    let allRows = [];
+    let studentSort = {key:'updated', dir:-1};
+    let itemSort = {key:'order', dir:1};
+
+    function includedRows(){
+      const incl = document.getElementById('inclTeachers').checked;
+      return allRows.filter(r=>incl || r.user.role!=='teacher');
+    }
+
+    function analyseItems(rows){
+      return ITEM_DEFS.map(def=>{
+        let attempted=0, first=0, evenSum=0, evenN=0;
+        rows.forEach(r=>{
+          const x=def.extract(r.state);
+          if(!x) return;
+          attempted++;
+          if(x.first) first++;
+          if(x.even!==null && x.even!==undefined){ evenSum+=x.even; evenN++; }
+        });
+        return {def, attempted,
+          firstPct: def.kind==='match' ? null : (attempted?pct(first,attempted):null),
+          evenPct: evenN?Math.round(evenSum/evenN*100):null};
+      });
+    }
+
+    function renderTiles(rows){
+      const attempted = rows.filter(r=>hasWork(r.state));
+      const notAtt = rows.filter(r=>!hasWork(r.state));
+      const avgProg = attempted.length? Math.round(attempted.reduce((x,r)=>x+r.m.donePct,0)/attempted.length) : 0;
+      const triedMcq = attempted.filter(r=>r.m.mcqTried>0);
+      const avgFirst = triedMcq.length? Math.round(triedMcq.reduce((x,r)=>x+pct(r.m.mcqFirst,r.m.mcqTried),0)/triedMcq.length) : null;
+      const subs = rows.filter(r=>r.m.chSubmitted);
+      const avgScore = subs.length? (subs.reduce((x,r)=>x+(r.m.chScore||0),0)/subs.length).toFixed(1) : null;
+      const completed = rows.filter(r=>r.m.done>=TOTAL_ACTIVITIES).length;
+      document.getElementById('tiles').innerHTML = [
+        [''+rows.length,'Signed in'],
+        [''+attempted.length,'Attempted'],
+        [''+notAtt.length,'Not attempted'],
+        [avgProg+'%','Avg progress (of attempters)'],
+        [avgFirst===null?'-':avgFirst+'%','Avg quiz first-try'],
+        [subs.length+(avgScore!==null?' ('+avgScore+'/'+CH_TOTAL+' avg)':''),'Check submissions'],
+        [''+completed,'Finished everything']
+      ].map(([v,l])=>'<div class="tile"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>').join('');
+
+      const wrapEl=document.getElementById('notAttemptedWrap');
+      wrapEl.classList.toggle('hidden', notAtt.length===0);
+      document.getElementById('notAttempted').innerHTML =
+        notAtt.map(r=>'<div class="chip">'+escapeHtml(r.user.name||r.user.email)+' &middot; '+escapeHtml(r.user.email)+'</div>').join('');
+    }
+
+    function renderExtremes(stats){
+      const rated = stats.filter(s=>s.attempted>0 && s.evenPct!==null);
+      if(rated.length<2){ document.getElementById('extremes').innerHTML=''; return; }
+      const sorted=[...rated].sort((a,b)=>a.evenPct-b.evenPct);
+      const hard=sorted.slice(0,3), easy=sorted.slice(-3).reverse();
+      const chip=(s,cls)=>'<div class="chip '+cls+'"><b>'+s.evenPct+'%</b>&nbsp;'+s.def.label+': '+escapeHtml(s.def.text.slice(0,70))+(s.def.text.length>70?'...':'')+'</div>';
+      document.getElementById('extremes').innerHTML =
+        '<div class="qtext">Most missed</div><div class="chiplist">'+hard.map(s=>chip(s,'bad')).join('')+'</div>'+
+        '<div class="qtext" style="margin-top:10px">Best answered</div><div class="chiplist">'+easy.map(s=>chip(s,'good')).join('')+'</div>';
+    }
+
+    function renderItemTable(stats){
+      const {key,dir}=itemSort;
+      const sorted=[...stats].sort((a,b)=>{
+        const av = key==='order'?a.def.order : (a[key]===null?-1:a[key]);
+        const bv = key==='order'?b.def.order : (b[key]===null?-1:b[key]);
+        return (av-bv)*dir;
+      });
+      document.querySelector('#itemTable tbody').innerHTML = sorted.map(s=>
+        '<tr><td class="itemlabel">'+s.def.label+'</td>'+
+        '<td class="qtext">'+escapeHtml(s.def.text.slice(0,90))+(s.def.text.length>90?'...':'')+'</td>'+
+        '<td class="num">'+s.attempted+'</td>'+
+        '<td class="num">'+(s.firstPct===null?'-':s.firstPct+'%')+'</td>'+
+        '<td class="num">'+(s.evenPct===null?'-':s.evenPct+'%')+'</td></tr>').join('');
+      updateArrows('itemTable', itemSort);
+    }
+
+    function renderStudentTable(rows){
+      const q=(document.getElementById('searchBox').value||'').toLowerCase();
+      let list=rows.filter(r=>!q || (r.user.name||'').toLowerCase().includes(q) || (r.user.email||'').toLowerCase().includes(q));
+      const {key,dir}=studentSort;
+      const val=r=>{
+        if(key==='name') return (r.user.name||r.user.email||'').toLowerCase();
+        if(key==='done') return r.m.done;
+        if(key==='mcqFirst') return r.m.mcqTried? r.m.mcqFirst/r.m.mcqTried : -1;
+        if(key==='chScore') return r.m.chScore===null? -1 : r.m.chScore;
+        if(key==='updated') return r.updatedAt? Date.parse(r.updatedAt):0;
+        return 0;
+      };
+      list.sort((a,b)=>{ const av=val(a),bv=val(b); return (av<bv?-1:av>bv?1:0)*dir; });
+      document.querySelector('#studentTable tbody').innerHTML = list.map(r=>{
+        const roleTag = r.user.role==='teacher' ? ' <span class="badge info">teacher</span>' : '';
+        const prog = hasWork(r.state)
+          ? '<div class="pcell"><div class="minibar"><div style="width:'+r.m.donePct+'%"></div></div>'+r.m.done+'/'+TOTAL_ACTIVITIES+'</div>'
+          : '<span class="badge no">Not attempted</span>';
+        return '<tr class="rowlink">'+
+          '<td><a href="#student='+r.user.id+'" style="text-decoration:none;color:var(--txt)"><b>'+escapeHtml(r.user.name||r.user.email)+'</b></a>'+roleTag+
+            '<div class="qtext">'+escapeHtml(r.user.email)+'</div></td>'+
+          '<td class="num">'+prog+'</td>'+
+          '<td class="num">'+(r.m.mcqTried? r.m.mcqFirst+'/'+r.m.mcqTried : '-')+'</td>'+
+          '<td class="num">'+(r.m.chScore===null?'-':r.m.chScore+'/'+CH_TOTAL)+'</td>'+
+          '<td>'+(r.updatedAt? new Date(r.updatedAt).toLocaleString() : '-')+'</td>'+
+          '<td><a href="#student='+r.user.id+'">View &rarr;</a></td></tr>';
+      }).join('');
+      updateArrows('studentTable', studentSort);
+    }
+
+    function updateArrows(tableId, sort){
+      document.querySelectorAll('#'+tableId+' th.sortable').forEach(th=>{
+        th.querySelector('.arrow').innerHTML = th.dataset.key===sort.key ? (sort.dir===1?'&#9650;':'&#9660;') : '';
+      });
+    }
+
+    function renderOverview(){
+      const rows=includedRows();
+      emptyBox.hidden = allRows.length!==0;
+      renderTiles(rows);
+      const stats=analyseItems(rows);
+      renderExtremes(stats);
+      renderItemTable(stats);
+      renderStudentTable(rows);
+    }
+
+    // ---- per-student detail (reused renderer) ----
     function renderStudentDetail(state){
       const r = (state && state.responses) || {};
       const scen = r.scenarios || {}, matches = r.matches || {};
       const quiz = r.quiz || {}; const mcq = quiz.mcq || {}, short = quiz.short || {};
       const ch = r.challenge || {};
-      const completed = state.completedKeys || {};
+      const completed = (state&&state.completedKeys) || {};
       let html = '';
-
-      // progress
       const done = Object.values(completed).filter(Boolean).length;
-      const pct = Math.round(done/TOTAL_ACTIVITIES*100);
-      html += '<div class="progress-line"><div class="pbar"><div style="width:'+pct+'%"></div></div>'+
-              '<span class="plabel">'+done+' / '+TOTAL_ACTIVITIES+' activities ('+pct+'%)</span></div>';
-
-      // per module
+      const p = pct(done,TOTAL_ACTIVITIES);
+      html += '<div class="progress-line"><div class="pbar"><div style="width:'+p+'%"></div></div>'+
+              '<span class="plabel">'+done+' / '+TOTAL_ACTIVITIES+' activities ('+p+'%)</span></div>';
       MODULES.forEach(m=>{
         let block = '';
         (m.activities||[]).forEach((act,ai)=>{
@@ -176,16 +457,12 @@
         });
         if(block) html += '<div class="topic"><h3>Topic '+m.num+': '+m.title+'</h3>'+block+'</div>';
       });
-
-      // challenge
       if(ch.started || ch.submitted){
         let block = '';
         if(ch.submitted){
-          const total = CHALLENGE.sectionA.length + CHALLENGE.sectionB.reduce((x,q)=>x+schemeSum(q),0);
-          block += '<div class="score-line">'+(ch.score??'?')+' / '+total+' marks'+
+          block += '<div class="score-line">'+(ch.score??'?')+' / '+CH_TOTAL+' marks'+
                    (Number.isFinite(ch.pct)?' &middot; '+ch.pct+'%':'')+
-                   (ch.grade?'<span class="grade">Grade '+ch.grade+'</span>':'')+
-                   '</div>';
+                   (ch.grade?'<span class="grade">Grade '+ch.grade+'</span>':'')+'</div>';
           if(Number.isFinite(ch.sectionAScore)||Number.isFinite(ch.sectionBScore)){
             block += '<div class="ans"><div class="a"><span>Section A: '+(ch.sectionAScore??'?')+' / '+CHALLENGE.sectionA.length+
                      ' &middot; Section B (self-marked): '+(ch.sectionBScore??'?')+' / '+CHALLENGE.sectionB.reduce((x,q)=>x+schemeSum(q),0)+'</span></div></div>';
@@ -216,40 +493,62 @@
         });
         html += '<div class="topic"><h3>Knowledge and Understanding Check</h3>'+block+'</div>';
       }
-
       if(html.indexOf('class="topic"')===-1){
         html += '<p class="nothing">Signed in, but no activity responses saved yet.</p>';
       }
       return html;
     }
 
-    function renderResponses(items){
-      responsesEl.innerHTML = "";
-      emptyBox.hidden = items.length !== 0;
-      items.forEach(item => {
-        const card = document.createElement("article");
-        card.className = "card";
-        const name = item.user.name || item.user.email;
-        const updatedAt = new Date(item.updatedAt).toLocaleString();
-        card.innerHTML = `
-          <h2 style="margin:0;font-size:1.2rem">${escapeHtml(name)}</h2>
-          <div class="meta">
-            <span>${escapeHtml(item.user.email)}</span>
-            <span>${escapeHtml(item.user.role)}</span>
-            <span>Updated ${escapeHtml(updatedAt)}</span>
-          </div>
-          ${renderStudentDetail(item.state || {})}
-          <details class="raw"><summary>Raw saved data (JSON)</summary><pre>${escapeHtml(JSON.stringify(item.state, null, 2))}</pre></details>
-        `;
-        responsesEl.appendChild(card);
-      });
+    function renderDetail(userId){
+      const r = allRows.find(x=>x.user.id===userId);
+      const content = document.getElementById('detailContent');
+      if(!r){ content.innerHTML='<p class="nothing">No such student in the current data. Refresh and try again.</p>'; return; }
+      const updated = r.updatedAt? new Date(r.updatedAt).toLocaleString() : 'never';
+      content.innerHTML =
+        '<h2 style="margin:0;font-size:1.25rem">'+escapeHtml(r.user.name||r.user.email)+'</h2>'+
+        '<div class="meta"><span>'+escapeHtml(r.user.email)+'</span><span>'+escapeHtml(r.user.role)+'</span><span>Last saved: '+escapeHtml(updated)+'</span></div>'+
+        renderStudentDetail(r.state||{})+
+        '<details class="raw"><summary>Raw saved data (JSON)</summary><pre>'+escapeHtml(JSON.stringify(r.state,null,2))+'</pre></details>';
     }
 
+    // ---- routing ----
+    function route(){
+      const m = location.hash.match(/^#student=(\d+)$/);
+      if(m && allRows.length){
+        overviewView.classList.add('hidden');
+        detailView.classList.remove('hidden');
+        renderDetail(Number(m[1]));
+      } else {
+        detailView.classList.add('hidden');
+        overviewView.classList.remove('hidden');
+        if(allRows.length) renderOverview();
+      }
+    }
+    window.addEventListener('hashchange', route);
+    document.getElementById('backLink').addEventListener('click', e=>{ e.preventDefault(); history.pushState('', '', location.pathname); route(); });
+
+    // ---- sorting + filters ----
+    document.querySelectorAll('#studentTable th.sortable').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const k=th.dataset.key;
+        studentSort = studentSort.key===k ? {key:k, dir:-studentSort.dir} : {key:k, dir: k==='name'?1:-1};
+        renderStudentTable(includedRows());
+      });
+    });
+    document.querySelectorAll('#itemTable th.sortable').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const k=th.dataset.key;
+        itemSort = itemSort.key===k ? {key:k, dir:-itemSort.dir} : {key:k, dir: k==='order'?1:-1};
+        renderItemTable(analyseItems(includedRows()));
+      });
+    });
+    document.getElementById('searchBox').addEventListener('input', ()=>renderStudentTable(includedRows()));
+    document.getElementById('inclTeachers').addEventListener('change', renderOverview);
+
+    // ---- data loading ----
     async function loadResponses(){
       clearError();
       teacherStatus.textContent = "Loading teacher view...";
-      responsesEl.innerHTML = "";
-      emptyBox.hidden = true;
       const meResp = await fetch("/api/me", { credentials: "include" });
       const meData = await meResp.json();
       if(!meData.authenticated){
@@ -259,22 +558,19 @@
         throw new Error("This dashboard is only available to allowlisted teacher accounts.");
       }
       teacherStatus.textContent = `Signed in as ${meData.user.name} (${meData.user.email})`;
-
-      const resp = await fetch(`/api/teacher/responses?module=${encodeURIComponent(MODULE_SLUG)}`, {
-        credentials: "include"
-      });
+      const resp = await fetch(`/api/teacher/responses?module=${encodeURIComponent(MODULE_SLUG)}`, { credentials: "include" });
       const data = await resp.json();
       if(!resp.ok){
         throw new Error(data.error || "Unable to load teacher responses.");
       }
-      renderResponses(data.responses || []);
+      allRows = (data.responses||[]).map(item=>({
+        user:item.user, state:item.state||null, updatedAt:item.updatedAt||null,
+        m:studentMetrics(item.state||null)
+      }));
+      route();
     }
-
-    refreshBtn.addEventListener("click", () => {
-      loadResponses().catch(err => showError(err.message));
-    });
-
-    loadResponses().catch(err => showError(err.message));
+    refreshBtn.addEventListener("click", ()=>{ loadResponses().catch(err=>showError(err.message)); });
+    loadResponses().catch(err=>showError(err.message));
   </script>
 </body>
 </html>

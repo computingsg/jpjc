@@ -310,10 +310,10 @@ def create_app():
                     u.picture,
                     ms.state_json,
                     ms.updated_at
-                FROM module_states ms
-                JOIN app_users u ON u.id = ms.user_id
-                WHERE ms.module_slug = %s
-                ORDER BY ms.updated_at DESC, u.email ASC
+                FROM app_users u
+                LEFT JOIN module_states ms
+                    ON ms.user_id = u.id AND ms.module_slug = %s
+                ORDER BY ms.updated_at DESC NULLS LAST, u.email ASC
                 """,
                 (module_slug,),
             )
@@ -332,7 +332,7 @@ def create_app():
                             "picture": row["picture"],
                         },
                         "state": row["state_json"],
-                        "updatedAt": row["updated_at"].isoformat(),
+                        "updatedAt": row["updated_at"].isoformat() if row["updated_at"] else None,
                     }
                     for row in rows
                 ],
