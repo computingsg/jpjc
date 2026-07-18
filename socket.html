@@ -291,6 +291,17 @@ section.challenge h2{font-size:1.8rem;font-weight:800}
 .pyout.show{display:block}
 .pyout .perr{color:var(--bad)}
 
+/* Teach me: line-by-line scaffold */
+.teach{display:none;margin-top:12px;background:var(--bg3);border:1px solid var(--accent2);border-radius:12px;padding:14px 16px}
+.teach.show{display:block}
+.teach .th{font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:8px;font-weight:700}
+.teach .tcode{background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:Consolas,Menlo,monospace;font-size:.84rem;line-height:1.6;white-space:pre;overflow-x:auto;color:#d7e2ec;margin:0}
+.teach .tcode .cur{background:rgba(124,140,255,.18);display:inline-block;min-width:100%;border-radius:4px}
+.teach .tnote{margin-top:10px;font-size:.86rem;color:var(--txt);border-left:3px solid var(--accent);padding:7px 12px;background:var(--bg2);border-radius:6px}
+.teach .trow{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.teach .trow .tprog{font-size:.8rem;color:var(--mut)}
+.retry-row{margin-top:12px}
+
 /* Mobile polish */
 @media(max-width:640px){
   header{padding:56px 0 24px}
@@ -388,7 +399,7 @@ function createEmptyPersistedState(){
         sectionA:{},
         sectionBTexts:{},
         schemeChecks:{},
-        sectionC:{code:"", marks:null, crit:null},
+        sectionC:{code:"", marks:null, crit:null, teachUsed:false},
         score:null,
         pct:null,
         sectionAScore:null,
@@ -422,7 +433,8 @@ function sanitizePersistedState(raw){
   empty.responses.challenge.sectionC = {
     code: typeof secC.code==="string" ? secC.code : "",
     marks: Number.isFinite(secC.marks) ? secC.marks : null,
-    crit: Array.isArray(secC.crit) ? secC.crit : null
+    crit: Array.isArray(secC.crit) ? secC.crit : null,
+    teachUsed: Boolean(secC.teachUsed)
   };
   empty.responses.challenge.score = Number.isFinite(challenge.score) ? challenge.score : null;
   empty.responses.challenge.pct = Number.isFinite(challenge.pct) ? challenge.pct : null;
@@ -714,6 +726,14 @@ function buildScenario(m, act, actIdx){
   const k = key(m,'act'+actIdx);
   let answered = 0;
   const total = act.cards.length;
+  const retryRow = el('div','scenrow retry-row hidden');
+  const retryBtn = el('button','btn ghost','&#8635; Try this activity again');
+  retryBtn.onclick=()=>resetAndRerender(()=>{
+    act.cards.forEach((_,ci)=>{ delete persistedState.responses.scenarios[k+':card'+ci]; });
+    clearCompletion(k);
+  });
+  retryRow.appendChild(el('span',null,''));
+  retryRow.appendChild(retryBtn);
   act.cards.forEach((card,cardIdx)=>{
     const c = el('div','scenario-card');c.style.marginTop='14px';
     c.appendChild(el('p','stem',card.stem));
@@ -729,7 +749,7 @@ function buildScenario(m, act, actIdx){
       fb.className='fb show ok';
       fb.innerHTML='<b>Correct. </b>'+card.ok;
       answered++;
-      if(answered>=total) markDone(k);
+      if(answered>=total){ markDone(k); retryRow.classList.remove('hidden'); }
     }
     function showWrongNudge(selectedIndex){
       const opt = Number.isInteger(selectedIndex) ? card.choices[selectedIndex] : null;
@@ -769,6 +789,7 @@ function buildScenario(m, act, actIdx){
       }
     }
   });
+  wrap.appendChild(retryRow);
   return wrap;
 }
 
@@ -1019,6 +1040,14 @@ function buildQuiz(m){
       let msg = '<div class="score">'+mcqCorrect+' / '+mcqTotal+'</div><div>multiple-choice correct on the first try</div>';
       if(shortTotal>0) msg+='<div style="margin-top:8px;color:var(--mut)">Short-answer questions reviewed against the model answers. ✔</div>';
       res.innerHTML = msg;
+      const again = el('button','btn ghost','&#8635; Try this quiz again');
+      again.style.marginTop='12px';
+      again.onclick=()=>resetAndRerender(()=>{
+        Object.keys(persistedState.responses.quiz.mcq).forEach(q=>{ if(q.indexOf(k+':q')===0) delete persistedState.responses.quiz.mcq[q]; });
+        Object.keys(persistedState.responses.quiz.short).forEach(q=>{ if(q.indexOf(k+':q')===0) delete persistedState.responses.quiz.short[q]; });
+        clearCompletion(k);
+      });
+      res.appendChild(again);
       markDone(k);
     }
   }
@@ -1107,7 +1136,13 @@ function buildOrder(m, act, actIdx){
   box.appendChild(cands);
   const row = el('div','orow');
   const msg = el('span',null,'');
+  const rebuildBtn = el('button','btn ghost hidden','&#8635; Build it again');
+  rebuildBtn.onclick=()=>resetAndRerender(()=>{
+    delete persistedState.responses.widgets[k];
+    clearCompletion(k);
+  });
   row.appendChild(msg);
+  row.appendChild(rebuildBtn);
   box.appendChild(row);
   wrap.appendChild(box);
 
@@ -1136,6 +1171,7 @@ function buildOrder(m, act, actIdx){
     if(placed>=act.lines.length){
       msg.innerHTML='<span style="color:var(--good)">Complete! All '+act.lines.length+' lines in order'+(mistakes?', with '+mistakes+' wrong tap'+(mistakes>1?'s':'')+' along the way.':' with no wrong taps. Flawless.')+'</span>';
       markDone(k);
+      rebuildBtn.classList.remove('hidden');
     } else {
       msg.textContent = placed+' / '+act.lines.length+' lines placed'+(mistakes? ' · '+mistakes+' wrong tap'+(mistakes>1?'s':''):'');
     }
@@ -1390,6 +1426,54 @@ function pyShortError(tb){
 
 function escText(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
+/* ---- Teach me: reveal a suggested solution line by line ---- */
+function buildTeach(solution, onFirstOpen){
+  const teachBtn = el('button','btn ghost','💡 Teach me');
+  const panel = el('div','teach');
+  panel.appendChild(el('div','th','Suggested solution, revealed line by line'));
+  const codeEl = el('pre','tcode');
+  const noteEl = el('div','tnote');
+  const trow = el('div','trow');
+  const prevB = el('button','btn ghost','&#8592; Previous');
+  const prog = el('span','tprog','');
+  const nextB = el('button','btn','Next line &#8594;');
+  const hideB = el('button','btn ghost','Hide');
+  trow.appendChild(prevB);trow.appendChild(prog);trow.appendChild(nextB);trow.appendChild(hideB);
+  panel.appendChild(codeEl);panel.appendChild(noteEl);panel.appendChild(trow);
+  let idx = 0, opened = false;
+  function paint(){
+    codeEl.innerHTML = solution.slice(0, idx+1).map((L,i)=>'<span'+(i===idx?' class="cur"':'')+'>'+escText(L.c)+'</span>').join('\n');
+    noteEl.innerHTML = '<b>Line '+(idx+1)+':</b> '+(solution[idx].n||'');
+    prog.textContent = 'Line '+(idx+1)+' of '+solution.length;
+    prevB.disabled = idx===0;
+    nextB.disabled = idx===solution.length-1;
+    nextB.innerHTML = idx===solution.length-1 ? 'All lines shown &#10003;' : 'Next line &#8594;';
+  }
+  teachBtn.onclick=()=>{
+    panel.classList.add('show');
+    teachBtn.classList.add('hidden');
+    if(!opened){ opened = true; if(onFirstOpen) onFirstOpen(); }
+    paint();
+  };
+  hideB.onclick=()=>{ panel.classList.remove('show'); teachBtn.classList.remove('hidden'); };
+  prevB.onclick=()=>{ if(idx>0){ idx--; paint(); } };
+  nextB.onclick=()=>{ if(idx<solution.length-1){ idx++; paint(); } };
+  return {btn:teachBtn, panel};
+}
+
+/* ---- Retry: clear an activity's saved work and rebuild the page ---- */
+function resetAndRerender(clearFn){
+  const y = window.scrollY;
+  clearFn();
+  queueSave();
+  rerenderApp();
+  window.scrollTo(0, y);
+}
+function clearCompletion(k){
+  delete state[k];
+  delete persistedState.completedKeys[k];
+}
+
 function buildCode(m, act, actIdx){
   const wrap = el('div','activity');
   wrap.appendChild(el('div','acttag q','&#9655; '+act.tag));
@@ -1417,12 +1501,19 @@ function buildCode(m, act, actIdx){
   const runBtn = el('button','btn','&#9654; Run code');
   const resetBtn = el('button','btn ghost','Reset code');
   const status = el('span','cstatus','Runs Python in your browser; nothing to install.');
-  row.appendChild(runBtn);row.appendChild(resetBtn);row.appendChild(status);
+  row.appendChild(runBtn);row.appendChild(resetBtn);
+  let teach = null;
+  if(act.solution){
+    teach = buildTeach(act.solution, ()=>{ rememberCode(k,{teachUsed:true}); queueSave(); });
+    row.appendChild(teach.btn);
+  }
+  row.appendChild(status);
   box.appendChild(row);
   const out = el('pre','pyout');
   box.appendChild(out);
   const fb = el('div','fb');
   box.appendChild(fb);
+  if(teach) box.appendChild(teach.panel);
   wrap.appendChild(box);
 
   function setStatus(txt, cls){ status.textContent=txt; status.className='cstatus'+(cls?' '+cls:''); }
@@ -1632,10 +1723,20 @@ function buildChallenge(){
     cRow.style.display='flex';cRow.style.gap='10px';cRow.style.alignItems='center';cRow.style.marginTop='10px';cRow.style.flexWrap='wrap';
     cRun = el('button','btn','&#9654; Run &amp; mark Section C');
     cStatus = el('span','cstatus','Auto-marked each time you run it.');
-    cRow.appendChild(cRun);cRow.appendChild(cStatus);
-    cEq.appendChild(cRow);
-    cOut = el('pre','pyout');
-    cEq.appendChild(cOut);
+    cRow.appendChild(cRun);
+    if(CQ.solution){
+      const cTeach = buildTeach(CQ.solution, ()=>{ savedC.teachUsed = true; savedChallenge.started = true; queueSave(); });
+      cRow.appendChild(cTeach.btn);
+      cEq.appendChild(cRow);
+      cOut = el('pre','pyout');
+      cEq.appendChild(cOut);
+      cEq.appendChild(cTeach.panel);
+    } else {
+      cEq.appendChild(cRow);
+      cOut = el('pre','pyout');
+      cEq.appendChild(cOut);
+    }
+    cRow.appendChild(cStatus);
     cBrk = el('div','scheme');
     cEq.appendChild(cBrk);
     body.appendChild(cEq);
@@ -1699,6 +1800,12 @@ function buildChallenge(){
   const actions = el('div','exam-actions');
   const submitBtn = el('button','btn','Submit &amp; mark');
   actions.appendChild(submitBtn);
+  const retakeBtn = el('button','btn ghost hidden','&#8635; Retake the challenge (clears this attempt)');
+  retakeBtn.onclick=()=>resetAndRerender(()=>{
+    persistedState.responses.challenge = createEmptyPersistedState().responses.challenge;
+    clearCompletion(CKEY);
+  });
+  actions.appendChild(retakeBtn);
   const note = el('div','hint-note','Section A is marked automatically. For Section B, tick the mark-scheme points your written answer genuinely covered; this mirrors how examiners award marks. Section C counts the marks from your most recent run.');
   body.appendChild(actions);
   body.appendChild(note);
@@ -1797,6 +1904,7 @@ function buildChallenge(){
     if(cRun){ cRun.disabled = true; }
     if(cStatus && !Number.isFinite(savedC.marks)){ cStatus.textContent='Not run before submission: 0 marks.'; cStatus.className='cstatus bad'; }
     submitBtn.disabled=true; submitBtn.textContent='Submitted';
+    retakeBtn.classList.remove('hidden');
     updateScore();
     savedChallenge.submitted = true;
     markDone(CKEY);

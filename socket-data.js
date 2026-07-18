@@ -199,7 +199,12 @@ else:
         __result["feedback"] = " ".join(probs)
     else:
         __result["passed"] = True
-        __result["feedback"] = "make_message() encodes to UTF-8 and appends the marker: exactly what sendall() needs, and the receiver's loop can now find the end."`}
+        __result["feedback"] = "make_message() encodes to UTF-8 and appends the marker: exactly what sendall() needs, and the receiver's loop can now find the end."`,
+    solution:[
+      {c:"def make_message(text):", n:"Keep the function header exactly as given: the checker calls <code>make_message(text)</code> with different strings."},
+      {c:String.raw`    message = text.encode()`, n:"<code>encode()</code> converts the str (a sequence of code points) into its UTF-8 bytes. Sockets can only carry bytes, never str."},
+      {c:String.raw`    return message + b'\n'`, n:"Append the end marker as a bytes literal and return. The single byte <code>b'\\n'</code> is what lets the receiver's loop find where the message ends."}
+    ]}
   ],
   quiz:[
     {type:"mcq", q:"The character 中 can be written as the str literal '\\u4e2d'. What is the result of evaluating len('\\u4e2d')?",
@@ -309,7 +314,14 @@ else:
         __result["feedback"] = "Everything arrived. Last step: close() the socket."
     else:
         __result["passed"] = True
-        __result["feedback"] = "A complete client: create, connect, receive, print, close. This is basic_client.py with the address and port written in directly."`}
+        __result["feedback"] = "A complete client: create, connect, receive, print, close. This is basic_client.py with the address and port written in directly."`,
+    solution:[
+      {c:"import socket", n:"Bring in the socket module first: it provides everything a client needs."},
+      {c:"my_socket = socket.socket()", n:"Create the socket object. This is the client's end of the future pipe; nothing is connected yet."},
+      {c:"my_socket.connect(('127.0.0.1', 12345))", n:"Initiate the connection. connect() takes ONE argument, a tuple of address and port, hence the double brackets. Wrong port here means ConnectionRefusedError."},
+      {c:"print(my_socket.recv(1024))", n:"recv(1024) blocks until at least one byte arrives, then returns up to 1024 bytes. Printing shows the greeting as a bytes literal."},
+      {c:"my_socket.close()", n:"Always close the socket once the conversation is over, so the connection is released properly."}
+    ]}
   ],
   quiz:[
     {type:"mcq", q:"Shortly after basic_server.py is started, the program appears stuck. Which line is responsible, and why?",
@@ -389,7 +401,13 @@ elif not s.closed:
     __result["feedback"] = "The loop is right. Last step: close() the socket."
 else:
     __result["passed"] = True
-    __result["feedback"] = "It took " + str(n) + " recv() calls to gather the whole greeting. This append-until-marker loop is the protocol pattern every later program relies on."`}
+    __result["feedback"] = "It took " + str(n) + " recv() calls to gather the whole greeting. This append-until-marker loop is the protocol pattern every later program relies on."`,
+    solution:[
+      {c:"message = b''", n:"Start with empty bytes. Every fragment that arrives will be appended to this variable."},
+      {c:String.raw`while b'\n' not in message:`, n:"Loop until the end marker is inside what has arrived so far. The protocol promises the marker appears exactly once, at the end, so this test is safe."},
+      {c:"    message += chat_socket.recv(1024)", n:"Each recv() returns whatever fragment has arrived, possibly tiny. <code>+=</code> keeps the earlier fragments and adds the new one in order."},
+      {c:"chat_socket.close()", n:"Once the marker is in, the message is provably complete: the loop ends and the socket can be closed."}
+    ]}
   ],
   quiz:[
     {type:"mcq", q:"A remote control sends a robot only these instructions, in any order and any number of times: b'FORWARD\\n', b'LEFT\\n', b'RIGHT\\n', with b'END\\n' always sent last, after which both sides close the socket. Which bytes may be returned by a single socket.recv() call on the robot?",
@@ -472,7 +490,15 @@ else:
         __result["feedback"] = prob
     else:
         __result["passed"] = True
-        __result["feedback"] = "Exactly the server's reply logic: LOW, HIGH or WIN, each ending with the marker so the client's recv loop can find the end of every reply."`}
+        __result["feedback"] = "Exactly the server's reply logic: LOW, HIGH or WIN, each ending with the marker so the client's recv loop can find the end of every reply."`,
+    solution:[
+      {c:"def judge(guess, answer):", n:"Keep the header: the checker calls judge() with two ints, the client's guess and the secret answer."},
+      {c:"    if guess < answer:", n:"First case: the guess is too small."},
+      {c:String.raw`        return b'LOW\n'`, n:"Reply with the exact protocol bytes, marker included. The client compares against <code>b'LOW'</code> after stripping, so precision matters."},
+      {c:"    if guess > answer:", n:"Second case: the guess is too big. No elif needed, since the previous case already returned."},
+      {c:String.raw`        return b'HIGH\n'`, n:"Again exact bytes with the marker, so the client's recv loop can find the end of the reply."},
+      {c:String.raw`    return b'WIN\n'`, n:"Only equality is left, so no condition is needed: if we reach this line, the guess matched."}
+    ]}
   ],
   quiz:[
     {type:"mcq", q:"Why must game_client.py begin its loop by receiving, rather than sending?",
@@ -618,6 +644,23 @@ if __result["error"]:
 if marks == 9:
     fb.append("Full marks: one complete iterative chat round, from bind to a clean close on both sockets.")
 __result["feedback"] = " ".join(fb)
-__result["passed"] = marks == 9`
+__result["passed"] = marks == 9`,
+    solution:[
+      {c:"import socket", n:"The server needs the socket module too."},
+      {c:"listen_socket = socket.socket()", n:"This will be the passive socket. It only listens for connection requests; it never carries the chat itself."},
+      {c:"listen_socket.bind(('127.0.0.1', 6789))", n:"Claim the pre-chosen port so the client can find the server. One argument: the address tuple."},
+      {c:"listen_socket.listen()", n:"Switch the socket into listening mode: connection requests can now arrive and queue."},
+      {c:"chat_socket, addr = listen_socket.accept()", n:"accept() blocks until the client connects, then returns a brand new socket for the conversation plus the client's address."},
+      {c:"while True:", n:"One iteration of this loop handles one complete message from the client."},
+      {c:"    data = b''", n:"Reset the buffer at the start of each message, so fragments of the previous message do not mix in."},
+      {c:String.raw`    while b'\n' not in data:`, n:"The recv loop: never assume one recv() returns the whole message. Keep going until the end marker has arrived."},
+      {c:"        data += chat_socket.recv(1024)", n:"Append each fragment in order. On this congested network the greeting arrives in pieces."},
+      {c:String.raw`    if data == b'quit\n':`, n:"The protocol's exit rule: a whole message equal to quit ends the session."},
+      {c:String.raw`        chat_socket.sendall(b'BYE\n')`, n:"Acknowledge the goodbye with the exact protocol bytes, marker included."},
+      {c:"        break", n:"Leave the message loop: the session is over."},
+      {c:String.raw`    chat_socket.sendall(b'GOT ' + data)`, n:"Normal case: reply GOT plus the message. data already ends with the marker, so nothing needs appending."},
+      {c:"chat_socket.close()", n:"Close the chat socket first: this conversation is finished."},
+      {c:"listen_socket.close()", n:"Then close the passive socket too, so every socket is closed properly."}
+    ]
   }
 };
