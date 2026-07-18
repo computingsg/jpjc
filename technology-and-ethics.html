@@ -33,6 +33,22 @@ header h1 span{background:linear-gradient(90deg,var(--accent),var(--purple));-we
 .metarow{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
 .chip{font-size:.78rem;color:var(--mut);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 11px}
 .chip b{color:var(--txt)}
+.auth-shell{margin-top:18px;margin-bottom:12px}
+.auth-card{display:flex;flex-wrap:wrap;justify-content:space-between;gap:18px;padding:18px 20px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh)}
+.auth-copy{max-width:640px}
+.auth-kicker{font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:700}
+.auth-copy h2{font-size:1.1rem;margin-top:6px}
+.auth-copy p,.auth-note{color:var(--mut);font-size:.92rem;margin-top:8px}
+.auth-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.auth-actions a{text-decoration:none}
+.auth-actions .btn{padding:10px 14px}
+.auth-note{width:100%;margin-top:0}
+.status-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--warn);margin-right:8px}
+.status-dot.ok{background:var(--good)}
+.status-dot.bad{background:var(--bad)}
+body.auth-locked #modnav,body.auth-locked #main,body.auth-locked #finale{filter:blur(3px);pointer-events:none;user-select:none}
+body.auth-locked footer{opacity:.5}
+@media(max-width:640px){.auth-card{padding:16px}.auth-actions{width:100%}}
 
 /* Sticky nav */
 nav#modnav{position:sticky;top:5px;z-index:150;background:rgba(13,17,23,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
@@ -228,6 +244,22 @@ section.challenge h2{font-size:1.8rem;font-weight:800}
   </div>
 </header>
 
+<div class="wrap auth-shell">
+  <div class="auth-card" id="authCard">
+    <div class="auth-copy">
+      <div class="auth-kicker">Google sign-in required</div>
+      <h2 id="authTitle">Sign in to save your progress</h2>
+      <p id="authText">Use your Google account to save your responses for self-review and teacher review.</p>
+    </div>
+    <div class="auth-actions">
+      <div id="googleSignIn"></div>
+      <button class="btn ghost hidden" id="signOutBtn" type="button">Sign out</button>
+      <a class="btn ghost hidden" id="teacherLink" href="teacher.html">Teacher review</a>
+    </div>
+    <div class="auth-note" id="authNote"><span class="status-dot"></span>Interactive work is locked until you sign in.</div>
+  </div>
+</div>
+
 <nav id="modnav"><div class="wrap" id="navinner"></div></nav>
 
 <main id="main" class="wrap"></main>
@@ -248,6 +280,7 @@ section.challenge h2{font-size:1.8rem;font-weight:800}
   </div>
 </footer>
 
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 /* ============ CONTENT DATA (grounded in 9569 syllabus) ============ */
 const MODULES = [
@@ -579,12 +612,282 @@ const MODULES = [
 }
 ];
 
+/* ============ AUTH + PERSISTENCE ============ */
+const MODULE_SLUG = "technology-and-ethics";
+let appConfig = {googleClientId:"", teacherDashboardPath:"teacher.html"};
+let authUser = null;
+let saveTimer = null;
+let saveInFlight = false;
+
+function createEmptyPersistedState(){
+  return {
+    completedKeys:{},
+    responses:{
+      scenarios:{},
+      matches:{},
+      quiz:{mcq:{},short:{}},
+      challenge:{
+        started:false,
+        timerMode:null,
+        submitted:false,
+        sectionA:{},
+        sectionBTexts:{},
+        schemeChecks:{},
+        score:null,
+        pct:null,
+        sectionAScore:null,
+        sectionBScore:null,
+        grade:null
+      }
+    }
+  };
+}
+
+function sanitizePersistedState(raw){
+  const empty = createEmptyPersistedState();
+  const safe = raw && typeof raw==="object" ? raw : {};
+  const responses = safe.responses && typeof safe.responses==="object" ? safe.responses : {};
+  empty.completedKeys = safe.completedKeys && typeof safe.completedKeys==="object" ? safe.completedKeys : {};
+  empty.responses.scenarios = responses.scenarios && typeof responses.scenarios==="object" ? responses.scenarios : {};
+  empty.responses.matches = responses.matches && typeof responses.matches==="object" ? responses.matches : {};
+  const quiz = responses.quiz && typeof responses.quiz==="object" ? responses.quiz : {};
+  empty.responses.quiz.mcq = quiz.mcq && typeof quiz.mcq==="object" ? quiz.mcq : {};
+  empty.responses.quiz.short = quiz.short && typeof quiz.short==="object" ? quiz.short : {};
+  const challenge = responses.challenge && typeof responses.challenge==="object" ? responses.challenge : {};
+  empty.responses.challenge.started = Boolean(challenge.started);
+  empty.responses.challenge.timerMode = challenge.timerMode || null;
+  empty.responses.challenge.submitted = Boolean(challenge.submitted);
+  empty.responses.challenge.sectionA = challenge.sectionA && typeof challenge.sectionA==="object" ? challenge.sectionA : {};
+  empty.responses.challenge.sectionBTexts = challenge.sectionBTexts && typeof challenge.sectionBTexts==="object" ? challenge.sectionBTexts : {};
+  empty.responses.challenge.schemeChecks = challenge.schemeChecks && typeof challenge.schemeChecks==="object" ? challenge.schemeChecks : {};
+  empty.responses.challenge.score = Number.isFinite(challenge.score) ? challenge.score : null;
+  empty.responses.challenge.pct = Number.isFinite(challenge.pct) ? challenge.pct : null;
+  empty.responses.challenge.sectionAScore = Number.isFinite(challenge.sectionAScore) ? challenge.sectionAScore : null;
+  empty.responses.challenge.sectionBScore = Number.isFinite(challenge.sectionBScore) ? challenge.sectionBScore : null;
+  empty.responses.challenge.grade = challenge.grade || null;
+  return empty;
+}
+
+let persistedState = createEmptyPersistedState();
+
+function setAuthLock(locked){
+  document.body.classList.toggle('auth-locked', locked);
+}
+
+function setAuthNote(message, status){
+  const note = document.getElementById('authNote');
+  const dotClass = status==="ok" ? "status-dot ok" : status==="bad" ? "status-dot bad" : "status-dot";
+  note.innerHTML = '<span class="'+dotClass+'"></span>'+message;
+}
+
+function updateAuthUI(){
+  const title = document.getElementById('authTitle');
+  const text = document.getElementById('authText');
+  const signOutBtn = document.getElementById('signOutBtn');
+  const teacherLink = document.getElementById('teacherLink');
+  if(authUser){
+    title.textContent = 'Signed in as '+authUser.name;
+    text.textContent = 'Responses are saved to the server for self-review and teacher review.';
+    signOutBtn.classList.remove('hidden');
+    teacherLink.href = (appConfig && appConfig.teacherDashboardPath) || 'teacher.html';
+    teacherLink.classList.toggle('hidden', authUser.role !== 'teacher');
+    setAuthNote('Your work is being saved automatically.', 'ok');
+  } else {
+    title.textContent = 'Sign in to save your progress';
+    text.textContent = 'Use your Google account to unlock activities and save responses for self-review and teacher review.';
+    signOutBtn.classList.add('hidden');
+    teacherLink.classList.add('hidden');
+    setAuthNote('Interactive work is locked until you sign in.', '');
+  }
+}
+
+async function fetchJson(url, options){
+  const response = await fetch(url, options);
+  const data = await response.json().catch(()=>({}));
+  if(!response.ok){
+    throw new Error(data.error || 'Request failed.');
+  }
+  return data;
+}
+
+function syncCompletionFromPersisted(){
+  Object.keys(state).forEach(k=>delete state[k]);
+  Object.entries(persistedState.completedKeys || {}).forEach(([k,v])=>{ if(v) state[k]=true; });
+}
+
+function rememberScenario(key, selectedIndex, correct){
+  persistedState.responses.scenarios[key] = {selectedIndex, correct};
+}
+
+function rememberMatch(key, placement, checked, correctCount){
+  persistedState.responses.matches[key] = {
+    placement:{...placement},
+    checked:Boolean(checked),
+    correctCount: correctCount ?? null
+  };
+}
+
+function rememberQuizMcq(key, selectedIndex, correct){
+  persistedState.responses.quiz.mcq[key] = {selectedIndex, correct};
+}
+
+function rememberQuizShort(key, patch){
+  const current = persistedState.responses.quiz.short[key] || {text:"", revealed:false, assessment:null};
+  persistedState.responses.quiz.short[key] = {...current, ...patch};
+}
+
+function rememberChallenge(){
+  return persistedState.responses.challenge;
+}
+
+async function saveStateNow(){
+  if(!authUser || saveInFlight) return;
+  saveInFlight = true;
+  try{
+    await fetchJson('/api/student/state', {
+      method:'PUT',
+      credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({module:MODULE_SLUG, state:persistedState})
+    });
+    setAuthNote('Your work is being saved automatically.', 'ok');
+  }catch(err){
+    setAuthNote('Save failed: '+err.message, 'bad');
+  }finally{
+    saveInFlight = false;
+  }
+}
+
+function queueSave(){
+  if(!authUser) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{ saveStateNow(); }, 700);
+}
+
+function clearLocalProgress(){
+  persistedState = createEmptyPersistedState();
+  syncCompletionFromPersisted();
+}
+
+async function loadServerState(){
+  if(!authUser){
+    clearLocalProgress();
+    return;
+  }
+  const data = await fetchJson('/api/student/state?module='+encodeURIComponent(MODULE_SLUG), {
+    credentials:'include'
+  });
+  persistedState = sanitizePersistedState(data.state);
+  syncCompletionFromPersisted();
+}
+
+function renderGoogleButton(retry){
+  if(!appConfig.googleClientId){
+    setAuthNote('Missing GOOGLE_CLIENT_ID configuration.', 'bad');
+    return;
+  }
+  if(!(window.google && google.accounts && google.accounts.id)){
+    if(retry < 20){
+      setTimeout(()=>renderGoogleButton(retry+1), 250);
+    }
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: appConfig.googleClientId,
+    callback: handleGoogleCredential
+  });
+  const host = document.getElementById('googleSignIn');
+  host.innerHTML = '';
+  google.accounts.id.renderButton(host, {
+    theme:'outline',
+    size:'large',
+    shape:'pill',
+    text:'signin_with',
+    width:250
+  });
+}
+
+async function handleGoogleCredential(response){
+  try{
+    const data = await fetchJson('/api/auth/google', {
+      method:'POST',
+      credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({credential: response.credential})
+    });
+    authUser = data.user;
+    await loadServerState();
+    updateAuthUI();
+    setAuthLock(false);
+    rerenderApp();
+  }catch(err){
+    setAuthNote('Sign-in failed: '+err.message, 'bad');
+  }
+}
+
+async function loadSession(){
+  const data = await fetchJson('/api/me', {credentials:'include'});
+  authUser = data.user;
+}
+
+async function bootstrap(){
+  try{
+    appConfig = await fetchJson('/api/config');
+  }catch(err){
+    setAuthNote('API configuration error: '+err.message, 'bad');
+  }
+  try{
+    await loadSession();
+    if(authUser){
+      await loadServerState();
+      setAuthLock(false);
+    }else{
+      clearLocalProgress();
+      setAuthLock(true);
+    }
+  }catch(err){
+    clearLocalProgress();
+    setAuthLock(true);
+    setAuthNote('Unable to load session: '+err.message, 'bad');
+  }
+  updateAuthUI();
+  renderGoogleButton(0);
+  rerenderApp();
+}
+
+async function signOut(){
+  await fetchJson('/api/auth/logout', {
+    method:'POST',
+    credentials:'include'
+  });
+  authUser = null;
+  clearLocalProgress();
+  updateAuthUI();
+  setAuthLock(true);
+  rerenderApp();
+}
+
+function rerenderApp(){
+  document.getElementById('main').innerHTML='';
+  document.getElementById('navinner').innerHTML='';
+  totalActivities = 0;
+  render();
+  initScrollSpy();
+}
+
 /* ============ PROGRESS TRACKING (in-memory only) ============ */
 const state = {};          // activityKey -> true when completed
 let totalActivities = 0;
 
 function key(m,i){return m.id+"-"+i;}
-function markDone(k){ if(!state[k]){ state[k]=true; refreshProgress(); } }
+function markDone(k){
+  if(!state[k]){
+    state[k]=true;
+    persistedState.completedKeys[k] = true;
+    refreshProgress();
+    queueSave();
+  }
+}
 
 function refreshProgress(){
   const done = Object.keys(state).filter(k=>state[k]).length;
@@ -622,33 +925,42 @@ function buildScenario(m, act, actIdx){
   const k = key(m,'act'+actIdx);
   let answered = 0;
   const total = act.cards.length;
-  act.cards.forEach((card)=>{
+  act.cards.forEach((card,cardIdx)=>{
     const c = el('div','scenario-card');c.style.marginTop='14px';
     c.appendChild(el('p','stem',card.stem));
     c.appendChild(el('div','role',card.role));
     const ch = el('div','choices');
     const fb = el('div','fb');
+    const responseKey = k+':card'+cardIdx;
+    function applyChoice(selectedIndex, fromRestore){
+      if(c.dataset.locked) return;
+      c.dataset.locked='1';
+      ch.querySelectorAll('.choice').forEach(x=>x.classList.add('locked'));
+      const b = ch.children[selectedIndex];
+      const opt = card.choices[selectedIndex];
+      b.classList.add(opt.correct?'correct':'wrong');
+      if(!opt.correct){
+        card.choices.forEach((o2,j)=>{ if(o2.correct) ch.children[j].classList.add('correct'); });
+      }
+      fb.className='fb show '+(opt.correct?'ok':'no');
+      fb.innerHTML='<b>'+(opt.correct?'Correct. ':'Not quite. ')+'</b>'+(opt.correct?card.ok:card.no);
+      answered++;
+      rememberScenario(responseKey, selectedIndex, opt.correct);
+      if(!fromRestore) queueSave();
+      if(answered>=total) markDone(k);
+    }
     card.choices.forEach((opt,oi)=>{
       const b = el('button','choice');
       b.innerHTML='<span class="mk">'+String.fromCharCode(65+oi)+'</span><span>'+opt.t+'</span>';
-      b.onclick=()=>{
-        if(c.dataset.locked) return;
-        c.dataset.locked='1';
-        ch.querySelectorAll('.choice').forEach(x=>x.classList.add('locked'));
-        b.classList.add(opt.correct?'correct':'wrong');
-        if(!opt.correct){
-          // reveal the correct one
-          card.choices.forEach((o2,j)=>{ if(o2.correct) ch.children[j].classList.add('correct'); });
-        }
-        fb.className='fb show '+(opt.correct?'ok':'no');
-        fb.innerHTML='<b>'+(opt.correct?'Correct. ':'Not quite. ')+'</b>'+(opt.correct?card.ok:card.no);
-        answered++;
-        if(answered>=total) markDone(k);
-      };
+      b.onclick=()=>applyChoice(oi,false);
       ch.appendChild(b);
     });
     c.appendChild(ch);c.appendChild(fb);
     wrap.appendChild(c);
+    const saved = persistedState.responses.scenarios[responseKey];
+    if(saved && Number.isInteger(saved.selectedIndex)){
+      applyChoice(saved.selectedIndex,true);
+    }
   });
   return wrap;
 }
@@ -660,6 +972,7 @@ function buildMatch(m, act, actIdx){
   wrap.appendChild(el('p','qmeta',act.instr));
   wrap.appendChild(el('p','match-hint','💡 Drag each card onto a box, or tap a card, then tap its box (works on phones and tablets).'));
   const k = key(m,'act'+actIdx);
+  const savedMatch = persistedState.responses.matches[k] || {};
   const grid = el('div','match-grid');
   const poolWrap = el('div',null);
   poolWrap.appendChild(el('div','col-label','Drag these'));
@@ -670,7 +983,7 @@ function buildMatch(m, act, actIdx){
 
   // shuffle tokens deterministically-ish by reversing
   const toks = act.tokens.slice().reverse();
-  const placement = {}; // dropId -> tokenId
+  const placement = savedMatch.placement && typeof savedMatch.placement==="object" ? {...savedMatch.placement} : {};
   let selectedTok = null; // tap-to-place selection (touch devices)
 
   function setSelected(tid){
@@ -713,10 +1026,14 @@ function buildMatch(m, act, actIdx){
     for(const dd in placement){ if(placement[dd]===tid) delete placement[dd]; }
     // if target already had a token, return it to pool
     placement[did]=tid;
+    rememberMatch(k, placement, false, null);
+    queueSave();
     renderSlots();
   }
   function returnToken(tid){
     for(const dd in placement){ if(placement[dd]===tid) delete placement[dd]; }
+    rememberMatch(k, placement, false, null);
+    queueSave();
     renderSlots();
   }
   function renderSlots(){
@@ -751,7 +1068,7 @@ function buildMatch(m, act, actIdx){
   const row = el('div','scenrow');
   const checkBtn = el('button','btn','Check answers'); checkBtn.disabled=true;
   const msg = el('span',null,'');
-  checkBtn.onclick=()=>{
+  function checkAnswers(store){
     let correct=0;
     act.targets.forEach(tg=>{
       const d = targets.querySelector('[data-did="'+tg.id+'"]');
@@ -762,10 +1079,17 @@ function buildMatch(m, act, actIdx){
     msg.innerHTML = correct===act.targets.length
       ? '<span style="color:var(--good)">All '+correct+' correct! ✔</span>'
       : '<span style="color:var(--warn)">'+correct+' / '+act.targets.length+' correct. Fix the red boxes.</span>';
+    if(store){
+      rememberMatch(k, placement, true, correct);
+      queueSave();
+    }
     if(correct===act.targets.length) markDone(k);
-  };
+  }
+  checkBtn.onclick=()=>checkAnswers(true);
   row.appendChild(msg);row.appendChild(checkBtn);
   wrap.appendChild(row);
+  renderSlots();
+  if(savedMatch.checked) checkAnswers(false);
   return wrap;
 }
 
@@ -777,6 +1101,7 @@ function buildQuiz(m){
   const card = el('div','card');card.style.marginTop='8px';
   let mcqTotal=0, mcqCorrect=0, mcqAnswered=0, shortConfirmed=0, shortTotal=0;
   m.quiz.forEach((qq,qi)=>{
+    const qKey = k+':q'+qi;
     const block = el('div',null);block.style.marginBottom='22px';
     block.appendChild(el('div','q',(qi+1)+'. '+qq.q));
     if(qq.type==='mcq'){
@@ -784,21 +1109,30 @@ function buildQuiz(m){
       block.appendChild(el('div','qmeta','Multiple choice: pick one'));
       const ch = el('div','choices');
       const fb = el('div','fb');
+      function applyMcq(selectedIndex, fromRestore){
+        if(block.dataset.locked)return;
+        block.dataset.locked='1';
+        ch.querySelectorAll('.choice').forEach(x=>x.classList.add('locked'));
+        const ok = selectedIndex===qq.ans;
+        const chosen = ch.children[selectedIndex];
+        chosen.classList.add(ok?'correct':'wrong');
+        if(!ok) ch.children[qq.ans].classList.add('correct');
+        fb.className='fb show '+(ok?'ok':'no');
+        fb.innerHTML='<b>'+(ok?'Correct. ':'Not quite. ')+'</b>'+qq.why;
+        rememberQuizMcq(qKey, selectedIndex, ok);
+        if(ok)mcqCorrect++;
+        mcqAnswered++;
+        if(!fromRestore) queueSave();
+        tally();
+      }
       qq.opts.forEach((opt,oi)=>{
         const b=el('button','choice','<span class="mk">'+String.fromCharCode(65+oi)+'</span><span>'+opt+'</span>');
-        b.onclick=()=>{
-          if(block.dataset.locked)return;block.dataset.locked='1';
-          ch.querySelectorAll('.choice').forEach(x=>x.classList.add('locked'));
-          const ok = oi===qq.ans;
-          b.classList.add(ok?'correct':'wrong');
-          if(!ok) ch.children[qq.ans].classList.add('correct');
-          fb.className='fb show '+(ok?'ok':'no');
-          fb.innerHTML='<b>'+(ok?'Correct. ':'Not quite. ')+'</b>'+qq.why;
-          if(ok)mcqCorrect++; mcqAnswered++; tally();
-        };
+        b.onclick=()=>applyMcq(oi,false);
         ch.appendChild(b);
       });
       block.appendChild(ch);block.appendChild(fb);
+      const savedMcq = persistedState.responses.quiz.mcq[qKey];
+      if(savedMcq && Number.isInteger(savedMcq.selectedIndex)) applyMcq(savedMcq.selectedIndex,true);
     } else {
       shortTotal++;
       block.appendChild(el('div','qmeta','Short answer: write, then compare with the model answer'));
@@ -806,14 +1140,45 @@ function buildQuiz(m){
       const model = el('div','model','<div class="mh">Model answer</div>'+qq.model);
       const sc = el('div','self-check');
       const showBtn = el('button','btn ghost','Reveal model answer');
-      showBtn.onclick=()=>{ model.classList.add('show'); showBtn.classList.add('hidden'); sc.classList.remove('hidden'); };
+      const savedShort = persistedState.responses.quiz.short[qKey] || {text:"", revealed:false, assessment:null};
+      function applyShortAssessment(value, fromRestore){
+        if(sc.dataset.done) return;
+        sc.dataset.done='1';
+        shortConfirmed++;
+        sc.classList.add('hidden');
+        if(value==='covered') model.style.borderColor='var(--good)';
+        rememberQuizShort(qKey, {assessment:value, revealed:true});
+        if(!fromRestore) queueSave();
+        tally();
+      }
+      showBtn.onclick=()=>{
+        model.classList.add('show');
+        showBtn.classList.add('hidden');
+        sc.classList.remove('hidden');
+        rememberQuizShort(qKey, {text:ta.value, revealed:true});
+        queueSave();
+      };
       const gotIt = el('button','btn','I covered the key points');
       const review = el('button','btn ghost','I missed some points');
       sc.classList.add('hidden');
-      gotIt.onclick=()=>{ shortConfirmed++; sc.classList.add('hidden'); model.style.borderColor='var(--good)'; tally(); };
-      review.onclick=()=>{ shortConfirmed++; sc.classList.add('hidden'); tally(); };
+      gotIt.onclick=()=>applyShortAssessment('covered',false);
+      review.onclick=()=>applyShortAssessment('review',false);
       sc.appendChild(gotIt);sc.appendChild(review);
       block.appendChild(ta);block.appendChild(showBtn);block.appendChild(sc);block.appendChild(model);
+      ta.value = savedShort.text || '';
+      ta.addEventListener('input',()=>{
+        rememberQuizShort(qKey, {text:ta.value});
+        queueSave();
+      });
+      if(savedShort.revealed || savedShort.assessment){
+        model.classList.add('show');
+        showBtn.classList.add('hidden');
+      }
+      if(savedShort.assessment){
+        applyShortAssessment(savedShort.assessment,true);
+      }else if(savedShort.revealed){
+        sc.classList.remove('hidden');
+      }
     }
     card.appendChild(block);
   });
@@ -920,6 +1285,7 @@ const TMARKS = AMARKS + BMARKS;
 
 function buildChallenge(){
   const CKEY = "challenge-final";
+  const savedChallenge = rememberChallenge();
   const sec = el('section','challenge');sec.id='challenge';
   const w = el('div',null);
   w.appendChild(el('div','trophy','🏆 Final challenge · all five topics'));
@@ -947,7 +1313,7 @@ function buildChallenge(){
 
   // exam body
   const body = el('div','exam-body');
-  const selected = {};   // A-index -> chosen option
+  const selected = savedChallenge.sectionA ? {...savedChallenge.sectionA} : {};   // A-index -> chosen option
   const schemeMarks = {}; // B-index -> marks awarded
 
   body.appendChild(el('div','sec-head','Section A: Multiple choice ('+AMARKS+' marks)'));
@@ -963,9 +1329,13 @@ function buildChallenge(){
       b.onclick=()=>{
         if(body.dataset.submitted) return;
         selected[i]=oi;
+        savedChallenge.sectionA[i]=oi;
+        savedChallenge.started = true;
         c.querySelectorAll('.opt').forEach(x=>x.classList.remove('sel'));
         b.classList.add('sel');
+        queueSave();
       };
+      if(Number(selected[i])===oi) b.classList.add('sel');
       c.appendChild(b);
     });
     const fb = el('div','eq-fb');
@@ -983,13 +1353,26 @@ function buildChallenge(){
     c.appendChild(head);
     c.appendChild(el('div','topic-tag',q.topic));
     const ta = el('textarea','short-in');ta.placeholder='Write your answer...';ta.style.marginTop='10px';
+    ta.value = savedChallenge.sectionBTexts && savedChallenge.sectionBTexts[i] ? savedChallenge.sectionBTexts[i] : '';
+    ta.addEventListener('input',()=>{
+      savedChallenge.sectionBTexts[i]=ta.value;
+      savedChallenge.started = true;
+      queueSave();
+    });
     c.appendChild(ta);
     const scheme = el('div','scheme');
     scheme.appendChild(el('div','sh','Mark scheme: tick each point you covered'));
     q.scheme.forEach((s,si)=>{
       const lab = el('label','spt');
       lab.innerHTML='<input type="checkbox"><span>'+s.pt+'</span><span class="m">'+s.m+' mk</span>';
-      lab.querySelector('input').onchange=()=>{ recomputeScheme(i,q,scheme); updateScore(); };
+      const input = lab.querySelector('input');
+      input.checked = Array.isArray(savedChallenge.schemeChecks && savedChallenge.schemeChecks[i]) && savedChallenge.schemeChecks[i].includes(si);
+      input.onchange=()=>{
+        recomputeScheme(i,q,scheme);
+        savedChallenge.started = true;
+        updateScore();
+        queueSave();
+      };
       scheme.appendChild(lab);
     });
     c.appendChild(scheme);
@@ -1018,10 +1401,15 @@ function buildChallenge(){
 
   function recomputeScheme(i,q,scheme){
     let m=0;
+    const checkedIndexes = [];
     scheme.querySelectorAll('.spt').forEach((row,ri)=>{
-      if(row.querySelector('input').checked) m+=q.scheme[ri].m;
+      if(row.querySelector('input').checked){
+        m+=q.scheme[ri].m;
+        checkedIndexes.push(ri);
+      }
     });
     schemeMarks[i]=m;
+    savedChallenge.schemeChecks[i]=checkedIndexes;
   }
   function sectionAScore(){
     let s=0; CHALLENGE.sectionA.forEach((q,i)=>{ if(selected[i]===q.ans) s++; }); return s;
@@ -1032,18 +1420,27 @@ function buildChallenge(){
     const total = a+b;
     const pct = Math.round(total/TMARKS*100);
     const band = gradeBand(pct);
+    savedChallenge.score = total;
+    savedChallenge.pct = pct;
+    savedChallenge.sectionAScore = a;
+    savedChallenge.sectionBScore = b;
+    savedChallenge.grade = band.g;
     board.classList.add('show');
     board.innerHTML='<div class="big">'+total+' / '+TMARKS+'</div>'+
       '<div>marks · '+pct+'%</div>'+
       '<div class="grade" style="color:'+band.c+';background:'+band.bg+'">Grade '+band.g+'</div>'+
       '<div class="brk">Section A: '+a+'/'+AMARKS+' &nbsp;·&nbsp; Section B: '+b+'/'+BMARKS+'</div>'+
       '<div class="brk" style="color:'+band.c+'">'+band.msg+'</div>';
+    return {a,b,total,pct,band};
   }
 
   let timerId=null;
   function begin(withTimer){
     intro.style.display='none';
     body.classList.add('show');
+    savedChallenge.started = true;
+    savedChallenge.timerMode = withTimer ? 'timed' : 'practice';
+    queueSave();
     if(withTimer){
       timerbar.classList.add('show');
       let left = CHALLENGE.timerMins*60;
@@ -1062,7 +1459,7 @@ function buildChallenge(){
   startBtn.onclick=()=>begin(true);
   noTimer.onclick=()=>begin(false);
 
-  submitBtn.onclick=()=>{
+  function finalizeSubmission(persist){
     body.dataset.submitted='1';
     if(timerId) clearInterval(timerId);
     // mark Section A
@@ -1082,11 +1479,31 @@ function buildChallenge(){
     });
     submitBtn.disabled=true; submitBtn.textContent='Submitted';
     updateScore();
+    savedChallenge.submitted = true;
     markDone(CKEY);
     const nb=document.querySelector('[data-nav="challenge"]'); if(nb) nb.classList.add('done');
     document.querySelector('[data-pill="challenge"]').classList.add('show');
     board.scrollIntoView({behavior:'smooth',block:'center'});
-  };
+    if(persist) queueSave();
+  }
+  submitBtn.onclick=()=>finalizeSubmission(true);
+
+  CHALLENGE.sectionB.forEach((q,i)=>{
+    const eq = body.querySelectorAll('.eq')[CHALLENGE.sectionA.length + i];
+    recomputeScheme(i,q,eq._scheme);
+  });
+  if(savedChallenge.started){
+    intro.style.display='none';
+    body.classList.add('show');
+    if(savedChallenge.timerMode==='timed'){
+      timerbar.classList.add('show');
+      tVal.textContent='Saved session';
+    }
+    if(Object.keys(savedChallenge.schemeChecks || {}).length) updateScore();
+  }
+  if(savedChallenge.submitted){
+    finalizeSubmission(false);
+  }
 
   return sec;
 }
@@ -1164,17 +1581,28 @@ function initScrollSpy(){
   const ch=document.getElementById('challenge');if(ch)obs.observe(ch);
 }
 
-document.getElementById('resetBtn').onclick=()=>{
-  for(const k in state) delete state[k];
-  document.getElementById('main').innerHTML='';
-  document.getElementById('navinner').innerHTML='';
-  totalActivities=0;
-  render(); initScrollSpy();
+document.getElementById('signOutBtn').onclick=()=>{
+  signOut().catch(err=>setAuthNote('Sign-out failed: '+err.message, 'bad'));
+};
+
+document.getElementById('resetBtn').onclick=async ()=>{
+  clearLocalProgress();
+  if(authUser){
+    try{
+      await fetchJson('/api/student/state?module='+encodeURIComponent(MODULE_SLUG), {
+        method:'DELETE',
+        credentials:'include'
+      });
+      setAuthNote('Saved progress cleared.', 'ok');
+    }catch(err){
+      setAuthNote('Reset failed: '+err.message, 'bad');
+    }
+  }
+  rerenderApp();
   window.scrollTo({top:0,behavior:'smooth'});
 };
 
-render();
-initScrollSpy();
+bootstrap();
 </script>
 </body>
 </html>

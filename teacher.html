@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teacher Review | Technology &amp; Ethics</title>
+  <style>
+    :root{
+      --bg:#0d1117; --bg2:#161b22; --bg3:#1f2632; --line:#2b3441;
+      --txt:#e6edf3; --mut:#93a1b2; --accent:#4dd0e1; --good:#3fb950; --bad:#f8624d;
+      --warn:#e3b341; --radius:14px; --shadow:0 18px 42px rgba(0,0,0,.28);
+      --font:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--txt);
+      font-family:var(--font);
+      line-height:1.5;
+    }
+    .wrap{max-width:1200px;margin:0 auto;padding:28px 20px 60px}
+    .hero,.card{
+      background:var(--bg2);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+    .hero{padding:24px}
+    .hero h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem)}
+    .hero p{margin:10px 0 0;color:var(--mut)}
+    .row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin-top:18px}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:8px 12px;border-radius:999px;background:var(--bg3);
+      border:1px solid var(--line);color:var(--mut);font-size:.92rem
+    }
+    .btn{
+      border:none;border-radius:10px;padding:10px 16px;cursor:pointer;
+      font:inherit;font-weight:700;background:var(--accent);color:#07121a
+    }
+    .btn.secondary{background:transparent;border:1px solid var(--line);color:var(--txt)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:18px}
+    .card{padding:18px}
+    .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+    .meta span{font-size:.86rem;color:var(--mut);background:var(--bg3);padding:6px 10px;border-radius:999px}
+    .summary{font-size:.95rem;color:var(--mut);margin-top:12px}
+    .responses{margin-top:24px;display:grid;gap:16px}
+    .empty,.error{
+      margin-top:20px;padding:18px;border-radius:12px;background:var(--bg2);
+      border:1px solid var(--line);color:var(--mut)
+    }
+    .error{border-color:rgba(248,98,77,.4);color:#ffd4cc}
+    pre{
+      margin:14px 0 0;padding:14px;border-radius:12px;background:#0a0f14;
+      border:1px solid var(--line);overflow:auto;color:#d6e2ef;font-size:.85rem
+    }
+    a{color:var(--accent)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Teacher Review Dashboard</h1>
+      <p>Review every saved response for the Technology &amp; Ethics module. Access is limited to allowlisted teacher accounts.</p>
+      <div class="row">
+        <div class="pill" id="teacherStatus">Checking teacher access...</div>
+        <div class="row" style="margin-top:0">
+          <a class="btn secondary" href="technology-and-ethics.html" style="text-decoration:none">Back to Module</a>
+          <button class="btn" id="refreshBtn" type="button">Refresh Responses</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="errorBox" class="error" hidden></div>
+    <div id="emptyBox" class="empty" hidden>No saved student responses yet.</div>
+    <section id="responses" class="responses"></section>
+  </div>
+
+  <script>
+    const MODULE_SLUG = "technology-and-ethics";
+    const teacherStatus = document.getElementById("teacherStatus");
+    const errorBox = document.getElementById("errorBox");
+    const emptyBox = document.getElementById("emptyBox");
+    const responsesEl = document.getElementById("responses");
+    const refreshBtn = document.getElementById("refreshBtn");
+
+    function showError(message){
+      errorBox.hidden = false;
+      errorBox.textContent = message;
+    }
+
+    function clearError(){
+      errorBox.hidden = true;
+      errorBox.textContent = "";
+    }
+
+    function escapeHtml(value){
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function buildSummary(state){
+      const completedKeys = Object.keys(state.completedKeys || {}).filter(key => state.completedKeys[key]);
+      const scenarioCount = Object.keys((state.responses || {}).scenarios || {}).length;
+      const matchCount = Object.keys((state.responses || {}).matches || {}).length;
+      const quizCount = Object.keys((state.responses || {}).quiz || {}).length;
+      const challengeSubmitted = Boolean(((state.responses || {}).challenge || {}).submitted);
+      return [
+        `Completed items: ${completedKeys.length}`,
+        `Scenario responses: ${scenarioCount}`,
+        `Matching responses: ${matchCount}`,
+        `Quiz entries: ${quizCount}`,
+        `Final challenge submitted: ${challengeSubmitted ? "yes" : "no"}`
+      ].join(" · ");
+    }
+
+    function renderResponses(items){
+      responsesEl.innerHTML = "";
+      emptyBox.hidden = items.length !== 0;
+      items.forEach(item => {
+        const card = document.createElement("article");
+        card.className = "card";
+        const name = item.user.name || item.user.email;
+        const updatedAt = new Date(item.updatedAt).toLocaleString();
+        const prettyState = JSON.stringify(item.state, null, 2);
+        card.innerHTML = `
+          <h2 style="margin:0;font-size:1.2rem">${escapeHtml(name)}</h2>
+          <div class="meta">
+            <span>${escapeHtml(item.user.email)}</span>
+            <span>${escapeHtml(item.user.role)}</span>
+            <span>Updated ${escapeHtml(updatedAt)}</span>
+          </div>
+          <p class="summary">${escapeHtml(buildSummary(item.state || {}))}</p>
+          <pre>${escapeHtml(prettyState)}</pre>
+        `;
+        responsesEl.appendChild(card);
+      });
+    }
+
+    async function loadResponses(){
+      clearError();
+      teacherStatus.textContent = "Loading teacher view...";
+      responsesEl.innerHTML = "";
+      emptyBox.hidden = true;
+      const meResp = await fetch("/api/me", { credentials: "include" });
+      const meData = await meResp.json();
+      if(!meData.authenticated){
+        throw new Error("Please sign in through the module page first.");
+      }
+      if(!meData.user || meData.user.role !== "teacher"){
+        throw new Error("This dashboard is only available to allowlisted teacher accounts.");
+      }
+      teacherStatus.textContent = `Signed in as ${meData.user.name} (${meData.user.email})`;
+
+      const resp = await fetch(`/api/teacher/responses?module=${encodeURIComponent(MODULE_SLUG)}`, {
+        credentials: "include"
+      });
+      const data = await resp.json();
+      if(!resp.ok){
+        throw new Error(data.error || "Unable to load teacher responses.");
+      }
+      renderResponses(data.responses || []);
+    }
+
+    refreshBtn.addEventListener("click", () => {
+      loadResponses().catch(err => showError(err.message));
+    });
+
+    loadResponses().catch(err => showError(err.message));
+  </script>
+</body>
+</html>
