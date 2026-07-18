@@ -7,55 +7,53 @@
   <style>
     :root{
       --bg:#0d1117; --bg2:#161b22; --bg3:#1f2632; --line:#2b3441;
-      --txt:#e6edf3; --mut:#93a1b2; --accent:#4dd0e1; --good:#3fb950; --bad:#f8624d;
-      --warn:#e3b341; --radius:14px; --shadow:0 18px 42px rgba(0,0,0,.28);
+      --txt:#e6edf3; --mut:#93a1b2; --accent:#4dd0e1; --accent2:#7c8cff;
+      --good:#3fb950; --bad:#f8624d; --warn:#e3b341;
+      --radius:14px; --shadow:0 18px 42px rgba(0,0,0,.28);
       --font:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
     }
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--txt);
-      font-family:var(--font);
-      line-height:1.5;
-    }
+    body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--font);line-height:1.5}
     .wrap{max-width:1200px;margin:0 auto;padding:28px 20px 60px}
-    .hero,.card{
-      background:var(--bg2);
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-    }
+    .hero,.card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
     .hero{padding:24px}
     .hero h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem)}
     .hero p{margin:10px 0 0;color:var(--mut)}
     .row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin-top:18px}
-    .pill{
-      display:inline-flex;align-items:center;gap:8px;
-      padding:8px 12px;border-radius:999px;background:var(--bg3);
-      border:1px solid var(--line);color:var(--mut);font-size:.92rem
-    }
-    .btn{
-      border:none;border-radius:10px;padding:10px 16px;cursor:pointer;
-      font:inherit;font-weight:700;background:var(--accent);color:#07121a
-    }
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:var(--bg3);border:1px solid var(--line);color:var(--mut);font-size:.92rem}
+    .btn{border:none;border-radius:10px;padding:10px 16px;cursor:pointer;font:inherit;font-weight:700;background:var(--accent);color:#07121a}
     .btn.secondary{background:transparent;border:1px solid var(--line);color:var(--txt)}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:18px}
-    .card{padding:18px}
+    .card{padding:20px}
     .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
     .meta span{font-size:.86rem;color:var(--mut);background:var(--bg3);padding:6px 10px;border-radius:999px}
-    .summary{font-size:.95rem;color:var(--mut);margin-top:12px}
-    .responses{margin-top:24px;display:grid;gap:16px}
-    .empty,.error{
-      margin-top:20px;padding:18px;border-radius:12px;background:var(--bg2);
-      border:1px solid var(--line);color:var(--mut)
-    }
+    .responses{margin-top:24px;display:grid;gap:18px}
+    .empty,.error{margin-top:20px;padding:18px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);color:var(--mut)}
     .error{border-color:rgba(248,98,77,.4);color:#ffd4cc}
-    pre{
-      margin:14px 0 0;padding:14px;border-radius:12px;background:#0a0f14;
-      border:1px solid var(--line);overflow:auto;color:#d6e2ef;font-size:.85rem
-    }
     a{color:var(--accent)}
+
+    .progress-line{display:flex;align-items:center;gap:12px;margin-top:14px}
+    .pbar{flex:1;height:8px;border-radius:999px;background:var(--bg3);overflow:hidden}
+    .pbar>div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+    .plabel{font-size:.85rem;color:var(--mut);white-space:nowrap}
+
+    .topic{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+    .topic h3{margin:0 0 10px;font-size:1rem;color:var(--accent2)}
+    .ans{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-bottom:8px;font-size:.92rem}
+    .ans .q{color:var(--mut);font-size:.85rem;margin-bottom:4px}
+    .ans .a{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}
+    .badge{flex:none;font-size:.72rem;font-weight:700;border-radius:7px;padding:2px 9px;white-space:nowrap}
+    .badge.ok{color:var(--good);background:rgba(63,185,80,.12);border:1px solid rgba(63,185,80,.35)}
+    .badge.no{color:var(--bad);background:rgba(248,98,77,.1);border:1px solid rgba(248,98,77,.35)}
+    .badge.info{color:var(--warn);background:rgba(227,179,65,.1);border:1px solid rgba(227,179,65,.3)}
+    .student-text{margin:6px 0 0;padding:8px 12px;border-left:3px solid var(--accent);background:#0a0f14;border-radius:6px;color:#d6e2ef;white-space:pre-wrap}
+    .match-row{display:flex;gap:8px;justify-content:space-between;align-items:baseline;padding:3px 0;font-size:.9rem}
+    .match-row .t{color:var(--mut)}
+    .score-line{font-size:1.05rem;font-weight:700;margin:6px 0 10px}
+    .score-line .grade{color:var(--accent);margin-left:8px}
+    details.raw{margin-top:14px}
+    details.raw summary{cursor:pointer;color:var(--mut);font-size:.85rem}
+    pre{margin:10px 0 0;padding:14px;border-radius:12px;background:#0a0f14;border:1px solid var(--line);overflow:auto;color:#d6e2ef;font-size:.8rem}
+    .nothing{color:var(--mut);font-size:.9rem;font-style:italic}
   </style>
 </head>
 <body>
@@ -77,6 +75,7 @@
     <section id="responses" class="responses"></section>
   </div>
 
+  <script src="content-data.js"></script>
   <script>
     const MODULE_SLUG = "technology-and-ethics";
     const teacherStatus = document.getElementById("teacherStatus");
@@ -85,37 +84,134 @@
     const responsesEl = document.getElementById("responses");
     const refreshBtn = document.getElementById("refreshBtn");
 
-    function showError(message){
-      errorBox.hidden = false;
-      errorBox.textContent = message;
+    function showError(message){ errorBox.hidden=false; errorBox.textContent=message; }
+    function clearError(){ errorBox.hidden=true; errorBox.textContent=""; }
+    function escapeHtml(v){
+      return String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
     }
 
-    function clearError(){
-      errorBox.hidden = true;
-      errorBox.textContent = "";
-    }
+    const schemeSum = q => q.scheme.reduce((x,s)=>x+s.m,0);
+    const TOTAL_ACTIVITIES = MODULES.reduce((n,m)=>n+(m.activities||[]).length+((m.quiz&&m.quiz.length)?1:0),0) + 1;
 
-    function escapeHtml(value){
-      return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;");
-    }
+    function pickLetter(i){ return String.fromCharCode(65+i); }
 
-    function buildSummary(state){
-      const completedKeys = Object.keys(state.completedKeys || {}).filter(key => state.completedKeys[key]);
-      const scenarioCount = Object.keys((state.responses || {}).scenarios || {}).length;
-      const matchCount = Object.keys((state.responses || {}).matches || {}).length;
-      const quizCount = Object.keys((state.responses || {}).quiz || {}).length;
-      const challengeSubmitted = Boolean(((state.responses || {}).challenge || {}).submitted);
-      return [
-        `Completed items: ${completedKeys.length}`,
-        `Scenario responses: ${scenarioCount}`,
-        `Matching responses: ${matchCount}`,
-        `Quiz entries: ${quizCount}`,
-        `Final challenge submitted: ${challengeSubmitted ? "yes" : "no"}`
-      ].join(" · ");
+    // Build a readable report for one student's state using the shared content data.
+    function renderStudentDetail(state){
+      const r = (state && state.responses) || {};
+      const scen = r.scenarios || {}, matches = r.matches || {};
+      const quiz = r.quiz || {}; const mcq = quiz.mcq || {}, short = quiz.short || {};
+      const ch = r.challenge || {};
+      const completed = state.completedKeys || {};
+      let html = '';
+
+      // progress
+      const done = Object.values(completed).filter(Boolean).length;
+      const pct = Math.round(done/TOTAL_ACTIVITIES*100);
+      html += '<div class="progress-line"><div class="pbar"><div style="width:'+pct+'%"></div></div>'+
+              '<span class="plabel">'+done+' / '+TOTAL_ACTIVITIES+' activities ('+pct+'%)</span></div>';
+
+      // per module
+      MODULES.forEach(m=>{
+        let block = '';
+        (m.activities||[]).forEach((act,ai)=>{
+          const actKey = m.id+'-act'+ai;
+          if(act.type==='scenario'){
+            act.cards.forEach((card,ci)=>{
+              const saved = scen[actKey+':card'+ci];
+              if(!saved || !Number.isInteger(saved.selectedIndex)) return;
+              const choice = card.choices[saved.selectedIndex];
+              block += '<div class="ans"><div class="q">Scenario: '+card.stem+'</div>'+
+                '<div class="a"><span>'+pickLetter(saved.selectedIndex)+'. '+(choice?choice.t:'?')+'</span>'+
+                '<span class="badge '+(saved.correct?'ok':'no')+'">'+(saved.correct?'Correct':'Incorrect')+'</span></div></div>';
+            });
+          } else if(act.type==='match'){
+            const saved = matches[actKey];
+            if(!saved || !saved.placement || !Object.keys(saved.placement).length) return;
+            const total = act.targets.length;
+            let rows='';
+            act.targets.forEach(tg=>{
+              const tid = saved.placement[tg.id];
+              if(!tid) return;
+              const tok = act.tokens.find(t=>t.id===tid);
+              const ok = tid===tg.accept;
+              rows += '<div class="match-row"><span><b>'+tg.title+'</b> <span class="t">&larr; '+(tok?tok.text:tid)+'</span></span>'+
+                      '<span class="badge '+(ok?'ok':'no')+'">'+(ok?'&#10003;':'&#10007;')+'</span></div>';
+            });
+            const headBadge = saved.checked
+              ? '<span class="badge '+(saved.correctCount===total?'ok':'info')+'">'+(saved.correctCount??'?')+' / '+total+' correct</span>'
+              : '<span class="badge info">Not checked yet</span>';
+            block += '<div class="ans"><div class="q">Matching: '+act.title+'</div>'+
+                     '<div class="a"><span></span>'+headBadge+'</div>'+rows+'</div>';
+          }
+        });
+        (m.quiz||[]).forEach((qq,qi)=>{
+          const qKey = m.id+'-quiz:q'+qi;
+          if(qq.type==='mcq'){
+            const saved = mcq[qKey];
+            if(!saved || !Number.isInteger(saved.selectedIndex)) return;
+            block += '<div class="ans"><div class="q">Quiz: '+qq.q+'</div>'+
+              '<div class="a"><span>'+pickLetter(saved.selectedIndex)+'. '+(qq.opts[saved.selectedIndex]||'?')+'</span>'+
+              '<span class="badge '+(saved.correct?'ok':'no')+'">'+(saved.correct?'Correct':'Incorrect')+'</span></div></div>';
+          } else {
+            const saved = short[qKey];
+            if(!saved || (!saved.text && !saved.revealed && !saved.assessment)) return;
+            const status = saved.assessment==='covered' ? '<span class="badge ok">Self-assessed: covered key points</span>'
+                        : saved.assessment==='review' ? '<span class="badge info">Self-assessed: needs review</span>'
+                        : saved.revealed ? '<span class="badge info">Viewed model answer</span>'
+                        : '<span class="badge info">Draft</span>';
+            block += '<div class="ans"><div class="q">Short answer: '+qq.q+'</div>'+
+              '<div class="a"><span></span>'+status+'</div>'+
+              (saved.text ? '<div class="student-text">'+escapeHtml(saved.text)+'</div>' : '<div class="nothing">No written answer.</div>')+
+              '</div>';
+          }
+        });
+        if(block) html += '<div class="topic"><h3>Topic '+m.num+': '+m.title+'</h3>'+block+'</div>';
+      });
+
+      // challenge
+      if(ch.started || ch.submitted){
+        let block = '';
+        if(ch.submitted){
+          const total = CHALLENGE.sectionA.length + CHALLENGE.sectionB.reduce((x,q)=>x+schemeSum(q),0);
+          block += '<div class="score-line">'+(ch.score??'?')+' / '+total+' marks'+
+                   (Number.isFinite(ch.pct)?' &middot; '+ch.pct+'%':'')+
+                   (ch.grade?'<span class="grade">Grade '+ch.grade+'</span>':'')+
+                   '</div>';
+          if(Number.isFinite(ch.sectionAScore)||Number.isFinite(ch.sectionBScore)){
+            block += '<div class="ans"><div class="a"><span>Section A: '+(ch.sectionAScore??'?')+' / '+CHALLENGE.sectionA.length+
+                     ' &middot; Section B (self-marked): '+(ch.sectionBScore??'?')+' / '+CHALLENGE.sectionB.reduce((x,q)=>x+schemeSum(q),0)+'</span></div></div>';
+          }
+        } else {
+          block += '<div class="ans"><div class="a"><span>Started ('+(ch.timerMode==='timed'?'timed mode':'practice mode')+'), not yet submitted.</span>'+
+                   '<span class="badge info">In progress</span></div></div>';
+        }
+        const sectionA = ch.sectionA || {};
+        CHALLENGE.sectionA.forEach((q,i)=>{
+          const sel = sectionA[i] ?? sectionA[String(i)];
+          if(!Number.isInteger(sel)) return;
+          const ok = sel===q.ans;
+          block += '<div class="ans"><div class="q">'+(i+1)+'. ['+q.topic+'] '+q.q+'</div>'+
+            '<div class="a"><span>'+pickLetter(sel)+'. '+(q.opts[sel]||'?')+'</span>'+
+            '<span class="badge '+(ok?'ok':'no')+'">'+(ok?'Correct':'Incorrect')+'</span></div></div>';
+        });
+        const texts = ch.sectionBTexts || {}; const checks = ch.schemeChecks || {};
+        CHALLENGE.sectionB.forEach((q,i)=>{
+          const text = texts[i] ?? texts[String(i)];
+          const ticked = checks[i] ?? checks[String(i)] ?? [];
+          if(!text && !(Array.isArray(ticked)&&ticked.length)) return;
+          const marks = Array.isArray(ticked) ? ticked.reduce((x,idx)=>x+((q.scheme[idx]||{}).m||0),0) : 0;
+          block += '<div class="ans"><div class="q">'+(i+6)+'. ['+q.topic+'] '+q.q+'</div>'+
+            '<div class="a"><span></span><span class="badge '+(marks>0?'ok':'info')+'">Self-marked: '+marks+' / '+schemeSum(q)+'</span></div>'+
+            (text ? '<div class="student-text">'+escapeHtml(text)+'</div>' : '<div class="nothing">No written answer.</div>')+
+            '</div>';
+        });
+        html += '<div class="topic"><h3>Knowledge and Understanding Check</h3>'+block+'</div>';
+      }
+
+      if(html.indexOf('class="topic"')===-1){
+        html += '<p class="nothing">Signed in, but no activity responses saved yet.</p>';
+      }
+      return html;
     }
 
     function renderResponses(items){
@@ -126,7 +222,6 @@
         card.className = "card";
         const name = item.user.name || item.user.email;
         const updatedAt = new Date(item.updatedAt).toLocaleString();
-        const prettyState = JSON.stringify(item.state, null, 2);
         card.innerHTML = `
           <h2 style="margin:0;font-size:1.2rem">${escapeHtml(name)}</h2>
           <div class="meta">
@@ -134,8 +229,8 @@
             <span>${escapeHtml(item.user.role)}</span>
             <span>Updated ${escapeHtml(updatedAt)}</span>
           </div>
-          <p class="summary">${escapeHtml(buildSummary(item.state || {}))}</p>
-          <pre>${escapeHtml(prettyState)}</pre>
+          ${renderStudentDetail(item.state || {})}
+          <details class="raw"><summary>Raw saved data (JSON)</summary><pre>${escapeHtml(JSON.stringify(item.state, null, 2))}</pre></details>
         `;
         responsesEl.appendChild(card);
       });
