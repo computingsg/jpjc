@@ -1100,6 +1100,7 @@ function buildQuiz(m){
   const k = key(m,'quiz');
   const card = el('div','card');card.style.marginTop='8px';
   let mcqTotal=0, mcqCorrect=0, mcqAnswered=0, shortConfirmed=0, shortTotal=0;
+  const res = el('div','result');
   m.quiz.forEach((qq,qi)=>{
     const qKey = k+':q'+qi;
     const block = el('div',null);block.style.marginBottom='22px';
@@ -1122,8 +1123,7 @@ function buildQuiz(m){
         rememberQuizMcq(qKey, selectedIndex, ok);
         if(ok)mcqCorrect++;
         mcqAnswered++;
-        if(!fromRestore) queueSave();
-        tally();
+        if(!fromRestore){ queueSave(); tally(); }
       }
       qq.opts.forEach((opt,oi)=>{
         const b=el('button','choice','<span class="mk">'+String.fromCharCode(65+oi)+'</span><span>'+opt+'</span>');
@@ -1148,8 +1148,7 @@ function buildQuiz(m){
         sc.classList.add('hidden');
         if(value==='covered') model.style.borderColor='var(--good)';
         rememberQuizShort(qKey, {assessment:value, revealed:true});
-        if(!fromRestore) queueSave();
-        tally();
+        if(!fromRestore){ queueSave(); tally(); }
       }
       showBtn.onclick=()=>{
         model.classList.add('show');
@@ -1182,7 +1181,6 @@ function buildQuiz(m){
     }
     card.appendChild(block);
   });
-  const res = el('div','result');
   card.appendChild(res);
   function tally(){
     const mcqDone = mcqAnswered>=mcqTotal;
@@ -1195,6 +1193,7 @@ function buildQuiz(m){
       markDone(k);
     }
   }
+  tally();
   wrap.appendChild(card);
   return wrap;
 }
@@ -1482,9 +1481,11 @@ function buildChallenge(){
     savedChallenge.submitted = true;
     markDone(CKEY);
     const nb=document.querySelector('[data-nav="challenge"]'); if(nb) nb.classList.add('done');
-    document.querySelector('[data-pill="challenge"]').classList.add('show');
-    board.scrollIntoView({behavior:'smooth',block:'center'});
-    if(persist) queueSave();
+    const pill=sec.querySelector('[data-pill="challenge"]'); if(pill) pill.classList.add('show');
+    if(persist){
+      board.scrollIntoView({behavior:'smooth',block:'center'});
+      queueSave();
+    }
   }
   submitBtn.onclick=()=>finalizeSubmission(true);
 
