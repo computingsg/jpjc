@@ -559,5 +559,65 @@ const CHALLENGE = {
        {pt:"Compare and reply: b'LOW\\n' if the guess is below the answer, b'HIGH\\n' if above", m:1},
        {pt:"If the guess matches, send b'WIN\\n' and stop; after 5 wrong tries send b'GAMEOVER\\n'; close the game socket and the listening socket", m:1}
      ]}
-  ]
+  ],
+  sectionC: {
+    topic:"Topics 3, 5 and 6 · Iterative chat server",
+    marks: 9,
+    q:"Implement the server side of a chat session.",
+    task:"A (simulated) chat client will connect to <code>127.0.0.1</code> port <code>6789</code> and send newline-terminated messages, ending the session with <code>b'quit\\n'</code>. The network is congested, so messages arrive in fragments and one <code>recv()</code> is never enough. Write the complete server: create the passive socket, <code>bind</code>, <code>listen</code> and <code>accept</code> the client. Then loop: receive one complete message (ending with <code>b'\\n'</code>); if it is <code>b'quit\\n'</code>, reply <code>b'BYE\\n'</code> and leave the loop; otherwise reply with <code>b'GOT '</code> + the message. Finally close both sockets. Press Run to auto-mark: partial credit is awarded per criterion, and you may run as often as you like before submitting.",
+    starter:`import socket
+
+# 1. create the passive socket, bind to ('127.0.0.1', 6789), listen
+# 2. accept the client
+# 3. loop:
+#      receive one complete message (it ends with b'\\n')
+#      if it is b'quit\\n': sendall(b'BYE\\n') and leave the loop
+#      otherwise: sendall(b'GOT ' + message)
+# 4. close both sockets
+`,
+    checkOnError: true,
+    setup:String.raw`PEER = {"client_peer": {"chunks": [b"hel", b"lo\n", b"ni", b"ght\n", b"quit\n"]}}
+_install_socket(PEER)
+def _client_gone(self):
+    raise ConnectionResetError("[simulated] the client has disconnected: the server kept waiting for data after the session should have ended")
+_MockSocket._on_empty = _client_gone`,
+    check:String.raw`crit = []
+passive = None
+for s in _SOCKETS:
+    ops = [e[0] for e in s.log]
+    if "bind" in ops or "listen" in ops or "accept" in ops:
+        passive = s
+datas = [s for s in _SOCKETS if s is not passive and any(e[0] in ("send", "recv") for e in s.log)]
+d = datas[0] if datas else None
+c1 = 0
+if passive:
+    binds = [e[1] for e in passive.log if e[0] == "bind"]
+    if any(len(t) == 2 and t[1] == 6789 for t in binds) and "listen" in [e[0] for e in passive.log]:
+        c1 = 2
+    elif binds:
+        c1 = 1
+crit.append(["Passive socket bound to port 6789 and listening", c1, 2])
+c2 = 1 if (passive and "accept" in [e[0] for e in passive.log] and d is not None) else 0
+crit.append(["accept() called and the new socket used for the conversation", c2, 1])
+sent = d.sent if d else b""
+recvs = len([e for e in (d.log if d else []) if e[0] == "recv"])
+c3 = 2 if (recvs >= 5 and b"GOT hello\n" in sent) else (1 if recvs >= 2 else 0)
+crit.append(["Each message received completely with a recv() loop", c3, 2])
+c4 = 2 if (b"GOT hello\n" in sent and b"GOT night\n" in sent) else (1 if (b"GOT hello" in sent or b"GOT night" in sent) else 0)
+crit.append(["Replied with b'GOT ' + message, ending with the marker", c4, 2])
+c5 = 1 if (b"BYE\n" in sent and b"GOT quit" not in sent) else 0
+crit.append(["b'quit\\n' answered with b'BYE\\n' and the loop exited", c5, 1])
+c6 = 1 if (passive and passive.closed and d is not None and d.closed) else 0
+crit.append(["Both the chat socket and the listening socket closed", c6, 1])
+marks = c1 + c2 + c3 + c4 + c5 + c6
+__result["marks"] = marks
+__result["crit"] = crit
+fb = []
+if __result["error"]:
+    fb.append("The program stopped with an error before finishing; marks were awarded for what it completed. A disconnect error usually means the loop did not end at b'quit\\n'.")
+if marks == 9:
+    fb.append("Full marks: one complete iterative chat round, from bind to a clean close on both sockets.")
+__result["feedback"] = " ".join(fb)
+__result["passed"] = marks == 9`
+  }
 };

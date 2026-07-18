@@ -388,6 +388,7 @@ function createEmptyPersistedState(){
         sectionA:{},
         sectionBTexts:{},
         schemeChecks:{},
+        sectionC:{code:"", marks:null, crit:null},
         score:null,
         pct:null,
         sectionAScore:null,
@@ -417,6 +418,12 @@ function sanitizePersistedState(raw){
   empty.responses.challenge.sectionA = challenge.sectionA && typeof challenge.sectionA==="object" ? challenge.sectionA : {};
   empty.responses.challenge.sectionBTexts = challenge.sectionBTexts && typeof challenge.sectionBTexts==="object" ? challenge.sectionBTexts : {};
   empty.responses.challenge.schemeChecks = challenge.schemeChecks && typeof challenge.schemeChecks==="object" ? challenge.schemeChecks : {};
+  const secC = challenge.sectionC && typeof challenge.sectionC==="object" ? challenge.sectionC : {};
+  empty.responses.challenge.sectionC = {
+    code: typeof secC.code==="string" ? secC.code : "",
+    marks: Number.isFinite(secC.marks) ? secC.marks : null,
+    crit: Array.isArray(secC.crit) ? secC.crit : null
+  };
   empty.responses.challenge.score = Number.isFinite(challenge.score) ? challenge.score : null;
   empty.responses.challenge.pct = Number.isFinite(challenge.pct) ? challenge.pct : null;
   empty.responses.challenge.sectionAScore = Number.isFinite(challenge.sectionAScore) ? challenge.sectionAScore : null;
@@ -1272,6 +1279,9 @@ class _MockSocket:
                 self._rx.insert(0, chunk[n:])
             self.log.append(("recv", out))
             return out
+        hook = getattr(type(self), "_on_empty", None)
+        if hook:
+            hook(self)
         self.log.append(("recv", b""))
         return b""
     def close(self):
@@ -1362,7 +1372,7 @@ function composeHarness(act, code){
     '    exec(compile(__student_src, "your_code.py", "exec"), __g)',
     'except BaseException:',
     '    __result["error"] = __tb.format_exc()',
-    'if not __result["error"]:',
+    (act.checkOnError ? 'if True:' : 'if not __result["error"]:'),
     '    try:',
     '        __check()',
     '    except BaseException:',
@@ -1488,7 +1498,8 @@ function gradeBand(pct){
 function schemeSum(q){ return q.scheme.reduce((x,s)=>x+s.m,0); }
 const AMARKS = CHALLENGE.sectionA.length;
 const BMARKS = CHALLENGE.sectionB.reduce((x,q)=>x+schemeSum(q),0);
-const TMARKS = AMARKS + BMARKS;
+const CMARKS = CHALLENGE.sectionC ? CHALLENGE.sectionC.marks : 0;
+const TMARKS = AMARKS + BMARKS + CMARKS;
 
 function buildChallenge(){
   const CKEY = "challenge-final";
@@ -1501,8 +1512,8 @@ function buildChallenge(){
 
   const intro = el('div','exam-intro');
   intro.innerHTML='<h3 style="font-size:1.1rem;margin-bottom:6px">📄 Before you start</h3>'+
-    '<p style="color:var(--mut)">Section A is '+AMARKS+' multiple-choice questions (1 mark each). Section B is '+CHALLENGE.sectionB.length+' structured questions ('+BMARKS+' marks). Answer everything, then submit to auto-mark Section A and self-mark Section B against the official-style mark scheme.</p>'+
-    '<div class="facts"><span><b>'+TMARKS+'</b> marks</span><span><b>'+(AMARKS+CHALLENGE.sectionB.length)+'</b> questions</span><span>Suggested <b>'+CHALLENGE.timerMins+' min</b></span><span>All <b>7</b> topics</span></div>';
+    '<p style="color:var(--mut)">Section A is '+AMARKS+' multiple-choice questions (1 mark each). Section B is '+CHALLENGE.sectionB.length+' structured questions ('+BMARKS+' marks). Section C is one programming task ('+CMARKS+' marks), auto-marked in your browser each time you run it, with partial credit per criterion. Run Section C before submitting: unrun code scores zero. Then submit to auto-mark Section A and self-mark Section B against the mark scheme.</p>'+
+    '<div class="facts"><span><b>'+TMARKS+'</b> marks</span><span><b>'+(AMARKS+CHALLENGE.sectionB.length+1)+'</b> questions</span><span>Suggested <b>'+CHALLENGE.timerMins+' min</b></span><span>All <b>7</b> topics</span></div>';
   const startWrap = el('div',null);
   const startBtn = el('button','btn','Start the challenge');
   const noTimer = el('button','btn ghost','Practice without timer');
@@ -1587,11 +1598,108 @@ function buildChallenge(){
     body.appendChild(c);
   });
 
+  // Section C: programming task (auto-marked via Pyodide)
+  const CQ = CHALLENGE.sectionC;
+  let cEd=null, cRun=null, cStatus=null, cOut=null, cBrk=null;
+  const savedC = savedChallenge.sectionC || (savedChallenge.sectionC = {code:"", marks:null, crit:null});
+  if(CQ){
+    body.appendChild(el('div','sec-head','Section C: Programming task ('+CMARKS+' marks)'));
+    const cEq = el('div','eq');
+    const cHead = el('div','qhead');
+    cHead.appendChild(el('div','qtext',(AMARKS+CHALLENGE.sectionB.length+1)+'. '+CQ.q));
+    cHead.appendChild(el('span','marks',CMARKS+' marks'));
+    cEq.appendChild(cHead);
+    cEq.appendChild(el('div','topic-tag',CQ.topic));
+    const cTask = el('div','task',CQ.task);
+    cTask.style.margin='10px 0 6px';
+    cTask.style.fontSize='.9rem';
+    cEq.appendChild(cTask);
+    cEd = el('textarea','pyed');
+    cEd.spellcheck=false;
+    cEd.style.minHeight='240px';
+    cEd.value = savedC.code || CQ.starter;
+    cEd.addEventListener('keydown',e=>{
+      if(e.key==='Tab'){
+        e.preventDefault();
+        const s=cEd.selectionStart, epos=cEd.selectionEnd;
+        cEd.value=cEd.value.slice(0,s)+'    '+cEd.value.slice(epos);
+        cEd.selectionStart=cEd.selectionEnd=s+4;
+      }
+    });
+    cEd.addEventListener('input',()=>{ savedC.code=cEd.value; savedChallenge.started=true; queueSave(); });
+    cEq.appendChild(cEd);
+    const cRow = el('div','crow');
+    cRow.style.display='flex';cRow.style.gap='10px';cRow.style.alignItems='center';cRow.style.marginTop='10px';cRow.style.flexWrap='wrap';
+    cRun = el('button','btn','&#9654; Run &amp; mark Section C');
+    cStatus = el('span','cstatus','Auto-marked each time you run it.');
+    cRow.appendChild(cRun);cRow.appendChild(cStatus);
+    cEq.appendChild(cRow);
+    cOut = el('pre','pyout');
+    cEq.appendChild(cOut);
+    cBrk = el('div','scheme');
+    cEq.appendChild(cBrk);
+    body.appendChild(cEq);
+
+    const renderCrit = ()=>{
+      cBrk.innerHTML='';
+      if(!Array.isArray(savedC.crit)){ cBrk.classList.remove('show'); return; }
+      cBrk.classList.add('show');
+      cBrk.appendChild(el('div','sh','Auto-marked: '+savedC.marks+' / '+CMARKS+' marks'));
+      savedC.crit.forEach(c=>{
+        const full = c[1]>=c[2], none = c[1]<=0;
+        const row = el('div','spt');
+        row.innerHTML='<span style="font-weight:700;color:'+(full?'var(--good)':(none?'var(--bad)':'var(--warn)'))+'">'+(full?'✓':(none?'✗':'◐'))+'</span><span>'+c[0]+'</span><span class="m">'+c[1]+' / '+c[2]+' mk</span>';
+        cBrk.appendChild(row);
+      });
+    };
+    renderCrit();
+
+    cRun.onclick = async ()=>{
+      if(body.dataset.submitted || PyRunner.busy) return;
+      PyRunner.busy = true; cRun.disabled = true;
+      cOut.className='pyout'; cOut.textContent='';
+      try{
+        if(!PyRunner.ready){
+          cStatus.textContent='Loading the Python runtime (about 10 MB, first run only)...'; cStatus.className='cstatus run';
+          const w = await PyRunner.warm();
+          if(!w || !w.warmed){ cStatus.textContent='Could not load the Python runtime. Check your connection and run again.'; cStatus.className='cstatus bad'; return; }
+          PyRunner.ready = true;
+        }
+        cStatus.textContent='Running and marking...'; cStatus.className='cstatus run';
+        const res = await PyRunner.run(composeHarness(CQ, cEd.value));
+        if(res.timeout || res.killed){
+          cStatus.textContent='Stopped after 15 seconds: a loop never ended.'; cStatus.className='cstatus bad';
+          cOut.textContent='The program ran forever, so it was stopped and no marks were awarded for this run. Check every loop condition: the message loop must end at b\'quit\\n\', and each recv() loop must stop once the marker is inside the data.';
+          cOut.className='pyout show';
+          return;
+        }
+        if(!res.ok){ cStatus.textContent='Something went wrong while running.'; cStatus.className='cstatus bad'; return; }
+        const v = res.verdict || {};
+        savedC.marks = Number.isFinite(v.marks) ? v.marks : 0;
+        savedC.crit = Array.isArray(v.crit) ? v.crit : null;
+        savedC.code = cEd.value;
+        savedChallenge.started = true;
+        let outHtml = res.stdout && res.stdout.trim() ? escText(res.stdout) : '';
+        if(v.error) outHtml += (outHtml?'\n':'')+'<span class="perr">'+escText(pyShortError(v.error))+'</span>';
+        if(v.feedback) outHtml += (outHtml?'\n':'')+escText(v.feedback);
+        if(outHtml){ cOut.innerHTML=outHtml; cOut.className='pyout show'; }
+        cStatus.textContent = savedC.marks+' / '+CMARKS+' marks'+(savedC.marks===CMARKS?': full marks.':'.');
+        cStatus.className = 'cstatus '+(savedC.marks===CMARKS?'ok':(savedC.marks>0?'run':'bad'));
+        renderCrit();
+        updateScore();
+        queueSave();
+      } finally {
+        PyRunner.busy=false;
+        cRun.disabled = !!body.dataset.submitted;
+      }
+    };
+  }
+
   // actions
   const actions = el('div','exam-actions');
   const submitBtn = el('button','btn','Submit &amp; mark');
   actions.appendChild(submitBtn);
-  const note = el('div','hint-note','Section A is marked automatically. For Section B, tick the mark-scheme points your written answer genuinely covered; this mirrors how examiners award marks.');
+  const note = el('div','hint-note','Section A is marked automatically. For Section B, tick the mark-scheme points your written answer genuinely covered; this mirrors how examiners award marks. Section C counts the marks from your most recent run.');
   body.appendChild(actions);
   body.appendChild(note);
 
@@ -1624,7 +1732,8 @@ function buildChallenge(){
   function updateScore(){
     const a = sectionAScore();
     const b = Object.values(schemeMarks).reduce((x,y)=>x+y,0);
-    const total = a+b;
+    const c = (savedC && Number.isFinite(savedC.marks)) ? savedC.marks : 0;
+    const total = a+b+c;
     const pct = Math.round(total/TMARKS*100);
     const band = gradeBand(pct);
     savedChallenge.score = total;
@@ -1636,9 +1745,9 @@ function buildChallenge(){
     board.innerHTML='<div class="big">'+total+' / '+TMARKS+'</div>'+
       '<div>marks · '+pct+'%</div>'+
       '<div class="grade" style="color:'+band.c+';background:'+band.bg+'">Grade '+band.g+'</div>'+
-      '<div class="brk">Section A: '+a+'/'+AMARKS+' &nbsp;·&nbsp; Section B: '+b+'/'+BMARKS+'</div>'+
+      '<div class="brk">Section A: '+a+'/'+AMARKS+' &nbsp;·&nbsp; Section B: '+b+'/'+BMARKS+(CQ?' &nbsp;·&nbsp; Section C: '+c+'/'+CMARKS:'')+'</div>'+
       '<div class="brk" style="color:'+band.c+'">'+band.msg+'</div>';
-    return {a,b,total,pct,band};
+    return {a,b,c,total,pct,band};
   }
 
   let timerId=null;
@@ -1684,6 +1793,9 @@ function buildChallenge(){
       }
       if(c._scheme) c._scheme.classList.add('show');
     });
+    if(cEd){ cEd.readOnly = true; }
+    if(cRun){ cRun.disabled = true; }
+    if(cStatus && !Number.isFinite(savedC.marks)){ cStatus.textContent='Not run before submission: 0 marks.'; cStatus.className='cstatus bad'; }
     submitBtn.disabled=true; submitBtn.textContent='Submitted';
     updateScore();
     savedChallenge.submitted = true;
@@ -1708,7 +1820,7 @@ function buildChallenge(){
       timerbar.classList.add('show');
       tVal.textContent='Saved session';
     }
-    if(Object.keys(savedChallenge.schemeChecks || {}).length) updateScore();
+    if(Object.keys(savedChallenge.schemeChecks || {}).length || Number.isFinite(savedC.marks)) updateScore();
   }
   if(savedChallenge.submitted){
     finalizeSubmission(false);
