@@ -26,17 +26,17 @@ const MODULES = [
      {stem:"Your team is shipping a banking app tomorrow. During testing you find a bug that occasionally shows one customer another customer's balance. Your manager says: 'Ship it, we'll patch next week.'",
       role:"Role: Software engineer on a release team",
       choices:[
-        {t:"Ship on schedule with extra monitoring, so the team can patch the moment the bug appears in production.", correct:false},
+        {t:"Ship on schedule with extra monitoring, so the team can patch the moment the bug appears in production.", correct:false, whyNot:"Monitoring is reactive: it only catches the defect after a customer's balance has already been exposed, so the privacy breach still happens on your watch."},
         {t:"Refuse to sign off, document the risk, and escalate that the defect exposes customers' personal data.", correct:true},
-        {t:"Add a line to the terms of service noting that displayed balances may occasionally be inaccurate.", correct:false}
+        {t:"Add a line to the terms of service noting that displayed balances may occasionally be inaccurate.", correct:false, whyNot:"Terms of service cannot authorise showing one customer's data to another. A disclaimer shifts blame on paper while the confidentiality breach still occurs."}
       ],
       ok:"Correct. Monitoring only catches a breach after a customer's balance has already been exposed, and a disclaimer cannot authorise showing one customer's data to another. The code requires refusing sign-off, documenting the defect and escalating.",
       no:"This sounds professional but still knowingly ships a privacy defect. Monitoring reacts only after a balance has been exposed, and terms of service cannot authorise disclosing one customer's data to another. Refuse sign-off, document and escalate."},
      {stem:"A recruiter offers you a lucrative contract to build a machine-learning model in a medical field you have never worked in, with only two weeks to deliver.",
       role:"Role: Freelance developer",
       choices:[
-        {t:"Accept it, then close the knowledge gap with an intensive online course during the first week.", correct:false},
-        {t:"Accept it, but add a contract clause disclaiming liability for any clinical errors the model makes.", correct:false},
+        {t:"Accept it, then close the knowledge gap with an intensive online course during the first week.", correct:false, whyNot:"A one-week crash course cannot produce safe competence in a safety-critical medical domain, so patients would still bear the risk of an unqualified build."},
+        {t:"Accept it, but add a contract clause disclaiming liability for any clinical errors the model makes.", correct:false, whyNot:"A liability clause protects you on paper, not the patients. Shifting legal risk does nothing about the danger of a model built without competence."},
         {t:"Decline or rescope it honestly, stating you would need proper time or a qualified collaborator.", correct:true}
       ],
       ok:"Correct. A one-week crash course cannot produce safe <b>competence</b> in a medical domain, and a liability clause shifts paper risk while leaving patients exposed. Competence means being honest about your limits, then rescoping or declining.",
@@ -60,10 +60,10 @@ const MODULES = [
   quiz:[
     {type:"mcq", q:"Which action best reflects the 'public interest first' principle?",
      opts:["Declining a project that is beyond your current technical skills","Refusing to share a client's user records with a third party","Reporting a safety flaw even though it delays your product","Crediting a colleague's code library in your documentation"],
-     ans:2, why:"All four are sound professional behaviours, but each maps to a different principle: declining unfamiliar work is competence, protecting client records is confidentiality, and giving credit is professional responsibility. Putting user safety above the schedule is public interest first."},
+     ans:2, wrongWhy:{0:"Sound professional behaviour, but it demonstrates a different principle: knowing the limits of your own ability.",1:"Also right to do, but protecting entrusted information illustrates a different principle from the one asked about.",3:"Giving credit reflects professional responsibility and respect for others' work, a different principle from the one asked about."}, why:"All four are sound professional behaviours, but each maps to a different principle: declining unfamiliar work is competence, protecting client records is confidentiality, and giving credit is professional responsibility. Putting user safety above the schedule is public interest first."},
     {type:"mcq", q:"A developer discovers a colleague secretly copying licensed source code from another company into their product. What does the code of conduct expect the developer to do?",
      opts:["Alert the company whose code was copied so it can enforce its licence","Raise it with the colleague, then escalate internally if the code stays in","Make a police report, since shipping unlicensed code is unlawful","Rewrite the affected module with licensed code so the product is compliant"],
-     ans:1, why:"All four sound responsible, but three misfire. Alerting the other company breaches the confidentiality you owe your employer and skips internal channels. A police report is disproportionate, since licensing is primarily a civil matter. Rewriting the module fixes the future code but conceals the conduct and the exposure from versions already shipped. The code expects raising it with the colleague, then escalating through proper internal channels."},
+     ans:1, wrongWhy:{0:"Going outside the firm first breaches the confidentiality you owe your employer and skips the channels that exist for exactly this situation.",2:"Licensing disputes are primarily a civil matter between companies, so a police report is a disproportionate first response.",3:"This quietly fixes future builds but conceals the conduct and the exposure from versions already shipped, so the firm cannot assess its risk."}, why:"All four sound responsible, but three misfire. Alerting the other company breaches the confidentiality you owe your employer and skips internal channels. A police report is disproportionate, since licensing is primarily a civil matter. Rewriting the module fixes the future code but conceals the conduct and the exposure from versions already shipped. The code expects raising it with the colleague, then escalating through proper internal channels."},
     {type:"short", q:"State two principles from a computing professional's code of conduct and give one example of each in practice.",
      model:"Any two, e.g. (1) <b>Competence</b>: only accepting a database security job if you are trained in it. (2) <b>Confidentiality</b>: not sharing a client's user records with a friend. Other valid principles: public interest, integrity/honesty, respect for privacy and intellectual property, professional responsibility."}
   ]
@@ -87,9 +87,9 @@ const MODULES = [
      {stem:"A large logistics firm deploys warehouse robots. Output rises 40%, but 200 manual packers are no longer needed.",
       role:"Task: Identify the dominant impact type",
       choices:[
-        {t:"Mainly a social impact, because losing 200 workers will change morale and community life around the site.", correct:false},
+        {t:"Mainly a social impact, because losing 200 workers will change morale and community life around the site.", correct:false, whyNot:"Morale and community effects are knock-ons of the job losses. Classify what the scenario directly describes: output rising while paid work disappears."},
         {t:"An economic impact: higher productivity for the firm but job displacement for the retrenched workers.", correct:true},
-        {t:"A neutral change overall, since technology tends to create as many jobs as it removes in the long run.", correct:false}
+        {t:"A neutral change overall, since technology tends to create as many jobs as it removes in the long run.", correct:false, whyNot:"Long-run job creation elsewhere does not cancel the displacement these 200 workers face right now, so the change is not neutral for them."}
       ],
       ok:"Correct. The morale effects are real knock-ons, and new jobs may emerge economy-wide over time, but what the scenario describes is <b>economic</b>: output rises while these jobs are displaced and the workers must reskill.",
       no:"Plausible, but classify what is actually described. Community effects follow from the job losses, and long-run job creation elsewhere does not cancel the displacement here. A productivity gain plus job displacement is an <b>economic</b> impact."},
@@ -97,8 +97,8 @@ const MODULES = [
       role:"Task: Identify the best analysis",
       choices:[
         {t:"A mixed impact: economic benefits for the firm alongside social drawbacks for the staff.", correct:true},
-        {t:"A workplace efficiency gain, since hours saved commuting convert directly into productive work.", correct:false},
-        {t:"A social benefit overall, since staff gain family time and freedom.", correct:false}
+        {t:"A workplace efficiency gain, since hours saved commuting convert directly into productive work.", correct:false, whyNot:"This counts only the upside. The scenario also describes new hires struggling to bond and late-night replies, which this reading ignores."},
+        {t:"A social benefit overall, since staff gain family time and freedom.", correct:false, whyNot:"The scenario itself mentions weaker team bonding and messages late into the night, so calling it an overall social benefit ignores half the evidence."}
       ],
       ok:"Correct. The savings and flexibility are real, but the scenario also describes new hires struggling to bond and replies late into the night. Full marks come from holding both sides: <b>economic benefits</b> with <b>social drawbacks</b>.",
       no:"That captures only the upside. The scenario itself mentions weak team bonding and late-night replies, so the analysis must pair the <b>economic benefits</b> with those <b>social drawbacks</b>."}
@@ -121,10 +121,10 @@ const MODULES = [
   quiz:[
     {type:"mcq", q:"Which is best described as a SOCIAL (rather than economic) impact of computing?",
      opts:["Retrenched drivers retraining for new logistics-sector jobs","Small local businesses reaching overseas customers through e-commerce","Gig workers facing unpredictable weekly incomes","Elderly residents feeling excluded as services move online"],
-     ans:3, why:"All four affect people, so classify by the nature of the effect: retraining, market reach and incomes concern jobs and money, which is economic. Feeling excluded from services concerns access and wellbeing, which is social."},
+     ans:3, wrongWhy:{0:"Retraining is about employment and livelihoods, which places it on the money-and-jobs side of the classification.",1:"New markets and sales are about income and industry, which is the economic side of the classification.",2:"Unstable income is about money and livelihoods, which makes it economic rather than social."}, why:"All four affect people, so classify by the nature of the effect: retraining, market reach and incomes concern jobs and money, which is economic. Feeling excluded from services concerns access and wellbeing, which is social."},
     {type:"mcq", q:"Which situation is the clearest example of the digital divide?",
      opts:["Commuters annoyed that an app update changed its familiar interface","Lower-income households lacking devices to access e-services","Two telcos offering different mobile data speeds at similar prices","An office issuing laptops to some staff and tablets to other staff"],
-     ans:1, why:"The digital divide is unequal access to technology and the skills to use it, which cuts people off from essential services. Interface changes, differing speeds and different issued devices still leave everyone connected."},
+     ans:1, wrongWhy:{0:"Annoyance at a redesign is a usability complaint. Everyone involved still has full access to the technology.",2:"That is market competition between providers. Customers of both still have connectivity and access to services.",3:"Different devices are still devices. Every member of staff remains connected and able to work."}, why:"The digital divide is unequal access to technology and the skills to use it, which cuts people off from essential services. Interface changes, differing speeds and different issued devices still leave everyone connected."},
     {type:"short", q:"Describe one positive and one negative impact of computing on the modern workplace.",
      model:"<b>Positive:</b> productivity tools and automation let workers do more, and remote collaboration enables flexible work. <b>Negative:</b> automation displaces routine jobs, and workers face constant pressure to reskill; work-life boundaries blur when people are always reachable."}
   ]
@@ -167,8 +167,8 @@ const MODULES = [
      {stem:"A food-delivery platform's algorithm assigns orders and sets pay rates automatically. Riders complain the rules are opaque and change without notice, and their weekly income swings unpredictably.",
       role:"Task: Choose the strongest analysis",
       choices:[
-        {t:"Mainly a legal issue: the platform should be made to publish its source code so riders can audit their pay.", correct:false},
-        {t:"Mainly a market issue: unhappy riders can simply switch to a rival app.", correct:false},
+        {t:"Mainly a legal issue: the platform should be made to publish its source code so riders can audit their pay.", correct:false, whyNot:"No law requires a company to open-source its algorithm, so framing this as a legal duty misstates the position."},
+        {t:"Mainly a market issue: unhappy riders can simply switch to a rival app.", correct:false, whyNot:"Rival platforms run the same opaque algorithmic model, so switching rarely escapes the problem the riders describe."},
         {t:"Ethical and economic issues, with social concern for the riders' wellbeing.", correct:true}
       ],
       ok:"Correct. No law compels publishing the algorithm, and switching apps rarely escapes the same model, since rivals use it too. The strong analysis stacks the lenses: <b>ethical</b> opacity, <b>economic</b> income instability and <b>social</b> concern for the riders.",
@@ -178,10 +178,10 @@ const MODULES = [
   quiz:[
     {type:"mcq", q:"An app secretly A/B-tests designs to make teenagers scroll longer. Which analysis identifies the core issue?",
      opts:["Economic: the tests raise engagement and therefore the app's advertising revenue","Social: teenagers spend more of their time connecting with friends online","Ethical: it manipulates users' psychology without their informed consent","Legal: running A/B tests on an app without a licence breaches the Copyright Act"],
-     ans:2, why:"The economic gain is the motive, not the issue, the copyright claim misapplies the law, and calling longer scrolling 'connection' ignores the manipulation. The core issue is ethical: exploiting psychology without informed consent."},
+     ans:2, wrongWhy:{0:"The revenue motive explains why the firm runs the tests, not what is wrong with running them.",1:"Reading extra scrolling as connection ignores that the extra time was engineered without the users' knowledge.",3:"The Copyright Act governs ownership of creative works. No licence is needed to test designs on your own app."}, why:"The economic gain is the motive, not the issue, the copyright claim misapplies the law, and calling longer scrolling 'connection' ignores the manipulation. The core issue is ethical: exploiting psychology without informed consent."},
     {type:"mcq", q:"A start-up scrapes publicly visible social-media photos to train a facial-recognition product, without asking anyone. In Singapore, the strongest LEGAL point is:",
      opts:["The Computer Misuse Act, because scraping is unauthorised access to a computer system","The Copyright Act, because the photographers own the images that were copied","No law applies, because the photos were already publicly visible online","The PDPA, because identifiable faces are personal data collected without consent"],
-     ans:3, why:"The Computer Misuse Act targets unauthorised access such as hacking, and scraping publicly served pages is not clearly that. Copyright belongs to the photographers and is a separate point. The strongest point is the PDPA: faces identify people, and public visibility does not remove the need for consent."},
+     ans:3, wrongWhy:{0:"The Computer Misuse Act targets unauthorised access such as hacking. Downloading publicly served pages is not clearly unauthorised access.",1:"Copyright belongs to the photographers, not the people photographed, so it is a separate and weaker point than one about the faces themselves.",2:"Publicly visible does not mean free to collect and use for any purpose. Visibility and lawful use are different questions."}, why:"The Computer Misuse Act targets unauthorised access such as hacking, and scraping publicly served pages is not clearly that. Copyright belongs to the photographers and is a separate point. The strongest point is the PDPA: faces identify people, and public visibility does not remove the need for consent."},
     {type:"short", q:"A city rolls out CCTV with facial recognition. Discuss it using any THREE of the four lenses (social, ethical, legal, economic).",
      model:"<b>Social:</b> may deter crime but makes citizens feel constantly watched. <b>Ethical:</b> consent and possible bias against certain groups. <b>Legal:</b> collection and use of biometric personal data must comply with the PDPA. <b>Economic:</b> cheaper policing but costs if data is misused or breached."}
   ]
@@ -232,8 +232,8 @@ const MODULES = [
       role:"Task: Pick the right combination of methods",
       choices:[
         {t:"Offline backups kept separate from the live server, plus role-based access control for clinic staff.", correct:true},
-        {t:"Full-disk encryption with a strict password policy, so records are unreadable to anyone outside the clinic.", correct:false},
-        {t:"A live mirror of every record to a second server that stays connected for instant failover.", correct:false}
+        {t:"Full-disk encryption with a strict password policy, so records are unreadable to anyone outside the clinic.", correct:false, whyNot:"Encryption keeps outsiders from reading records but cannot bring data back once ransomware encrypts it again, and passwords alone do not separate staff roles."},
+        {t:"A live mirror of every record to a second server that stays connected for instant failover.", correct:false, whyNot:"A permanently connected mirror is reached by the same ransomware and gets encrypted along with the original, so it guards against hardware failure, not this attack."}
       ],
       ok:"Correct. Encryption cannot restore data after ransomware, and a permanently connected mirror would be encrypted along with the original. <b>Offline backups</b> let the clinic restore records, and <b>role-based access control</b> enforces need-to-know.",
       no:"This is the classic near-miss. Encryption and passwords keep outsiders from reading records but restore nothing after ransomware, and a connected mirror gets encrypted together with the live server. The clinic needs <b>offline backups</b> plus <b>role-based access control</b>."}
@@ -242,10 +242,10 @@ const MODULES = [
   quiz:[
     {type:"mcq", q:"A staff member changes a patient's recorded blood type by accident and nobody notices. Which property has been compromised?",
      opts:["Integrity, because the stored data no longer matches reality","Privacy, because the record was opened by a staff member","Availability, because the correct value can no longer be retrieved","Confidentiality, because the change was not reported to the patient"],
-     ans:0, why:"The staff member was authorised to open the record, so privacy and confidentiality were not breached, and the record can still be retrieved, so availability stands. Stored data that no longer matches reality is a loss of integrity."},
+     ans:0, wrongWhy:{1:"The staff member was authorised to open the record, so no unauthorised person saw it.",2:"The record is still stored and retrievable. The problem is what the retrieved value now says.",3:"Confidentiality is about disclosure to unauthorised parties, and nothing here was disclosed to anyone."}, why:"The staff member was authorised to open the record, so privacy and confidentiality were not breached, and the record can still be retrieved, so availability stands. Stored data that no longer matches reality is a loss of integrity."},
     {type:"mcq", q:"Which pairing of method and main purpose is correct?",
      opts:["Encryption mainly protects integrity, since encrypted data cannot be altered","Backups mainly protect privacy, since copies sit away from the live system","Checksums mainly protect integrity, since they reveal when data has changed","Access control mainly protects integrity, since users cannot read others' records"],
-     ans:2, why:"Encrypted data can still be corrupted or replaced, so encryption mainly protects privacy. Backups guard against loss, and blocking users from reading records is privacy again. Checksums exist to reveal alteration, which is integrity."},
+     ans:2, wrongWhy:{0:"Encrypted data can still be corrupted or overwritten. Encryption controls who can read data, not whether it changes.",1:"Backups exist so data can be restored after loss. Extra copies, if anything, widen what must be kept confidential.",3:"Stopping people from reading records keeps data confidential. Reading alone changes nothing in the data."}, why:"Encrypted data can still be corrupted or replaced, so encryption mainly protects privacy. Backups guard against loss, and blocking users from reading records is privacy again. Checksums exist to reveal alteration, which is integrity."},
     {type:"short", q:"Explain the difference between the privacy and the integrity of data, and give one method that protects each.",
      model:"<b>Privacy</b> = keeping data confidential so only authorised people can access it; protected by <b>encryption</b> or access control. <b>Integrity</b> = keeping data accurate and unaltered so it stays correct; protected by <b>validation/checksums</b> (and backups to recover correct data). Privacy is about who can see it; integrity is about whether it is still correct."}
   ]
@@ -281,8 +281,8 @@ const MODULES = [
      {stem:"A gym collected members' phone numbers 'to send class reminders.' A year later it sells the entire list to a supplement company for marketing, without asking anyone.",
       role:"Task: Name the main breach",
       choices:[
-        {t:"Acceptable under the PDPA, provided the supplement company protects the numbers and uses them only for marketing.", correct:false},
-        {t:"A breach of the Protection obligation, because the numbers were sold without being encrypted first.", correct:false},
+        {t:"Acceptable under the PDPA, provided the supplement company protects the numbers and uses them only for marketing.", correct:false, whyNot:"The buyer's safeguards cannot legitimise the sale itself. The failure happened at the moment data collected for one purpose was disclosed for another."},
+        {t:"A breach of the Protection obligation, because the numbers were sold without being encrypted first.", correct:false, whyNot:"Encryption is beside the point here. The Protection obligation concerns securing data against unauthorised access, not whether a deliberate sale was permitted."},
         {t:"A breach of Consent and Purpose Limitation, since the data now serves a purpose nobody agreed to.", correct:true}
       ],
       ok:"Correct. The buyer's security practices cannot legitimise the sale, and encryption is beside the point. Data collected for class reminders was disclosed for marketing without fresh consent, breaching <b>Consent</b> and <b>Purpose Limitation</b>.",
@@ -290,9 +290,9 @@ const MODULES = [
      {stem:"An online store keeps every customer's full credit-card number in a plain text file, and a hacker copies it. The store also had no plan for telling anyone.",
       role:"Task: Identify the failed obligations",
       choices:[
-        {t:"Mainly a Consent failure, since customers never agreed to card storage.", correct:false},
+        {t:"Mainly a Consent failure, since customers never agreed to card storage.", correct:false, whyNot:"Customers did consent to their cards being used for payment. The question is how the numbers were kept and what happens after the theft."},
         {t:"The Protection obligation (no reasonable security) and Data Breach Notification.", correct:true},
-        {t:"Mainly a Retention failure, because the card numbers should have been deleted much sooner.", correct:false}
+        {t:"Mainly a Retention failure, because the card numbers should have been deleted much sooner.", correct:false, whyNot:"Deleting earlier would have shrunk the damage, but retention timing is not the direct failure that let a hacker read every number in plain text."}
       ],
       ok:"Correct. Customers consented to card use for payment, and earlier deletion is a side point. Plain-text storage fails the <b>Protection</b> obligation's reasonable-security test, and having no plan to alert the PDPC and customers fails <b>Data Breach Notification</b>.",
       no:"Plausible, but consent covered payment processing and retention timing is secondary. The direct failures are <b>Protection</b> (plain-text card numbers are not reasonable security) and <b>Data Breach Notification</b> (no plan to inform the PDPC and affected customers)."}
@@ -315,13 +315,13 @@ const MODULES = [
   quiz:[
     {type:"mcq", q:"Which of these is personal data under the PDPA?",
      opts:["A report stating that 62% of residents in a town use e-payments","A delivery record showing a named customer's home address","A dataset of survey answers with all names and IDs removed","A count of the patients treated at a clinic each month"],
-     ans:1, why:"Percentages, anonymised surveys and monthly counts cannot identify any individual. A record linking a name to a home address identifies a person, so it is personal data under the PDPA."},
+     ans:1, wrongWhy:{0:"A percentage across a whole town cannot be traced back to any single person.",2:"Properly anonymised answers no longer identify anyone, which takes them outside the definition.",3:"A monthly total reveals nothing about any individual patient."}, why:"Percentages, anonymised surveys and monthly counts cannot identify any individual. A record linking a name to a home address identifies a person, so it is personal data under the PDPA."},
     {type:"mcq", q:"A company wants to store its Singapore customers' data on overseas servers. Which obligation MOST directly applies?",
      opts:["Protection, because overseas servers need reasonable security arrangements","Consent, because customers must approve every change of server location","Retention Limitation, because data should not be kept longer overseas than needed","Transfer Limitation, because data sent abroad must get comparable protection"],
-     ans:3, why:"Protection, consent and retention all still matter, but the obligation written for this exact situation is Transfer Limitation: personal data moved out of Singapore must receive a comparable standard of protection."},
+     ans:3, wrongWhy:{0:"Security arrangements matter wherever data sits, but this obligation is not the one written specifically for sending data out of Singapore.",1:"The PDPA does not require fresh consent for every infrastructure change. Server location is not by itself a new purpose.",2:"Retention rules govern how long data is kept, not where it is kept or what standard of protection travels with it."}, why:"Protection, consent and retention all still matter, but the obligation written for this exact situation is Transfer Limitation: personal data moved out of Singapore must receive a comparable standard of protection."},
     {type:"mcq", q:"A resident registered their number to stop marketing calls, but a company keeps sending promotional SMSes anyway. Which PDPA-related mechanism has the company ignored?",
      opts:["The Do Not Call (DNC) Registry, which it must check before telemarketing","The Notification obligation, which requires stating the purpose of each SMS","The Accuracy obligation, since its contact list is clearly out of date","The Data Breach Notification obligation, since the messages were unwanted"],
-     ans:0, why:"Notification concerns stating purposes when collecting, Accuracy concerns keeping records correct, and breach notification concerns security incidents. Ignoring a telemarketing opt-out means failing to check the DNC Registry."},
+     ans:0, wrongWhy:{1:"Notification is about telling people the purpose when collecting their data, not screening marketing messages against an opt-out register.",2:"The number still reaches the right person, so the record is accurate. The failure is sending marketing to someone who opted out.",3:"Breach notification applies to security incidents that expose data, and no data was exposed by sending these messages."}, why:"Notification concerns stating purposes when collecting, Accuracy concerns keeping records correct, and breach notification concerns security incidents. Ignoring a telemarketing opt-out means failing to check the DNC Registry."},
     {type:"short", q:"Explain the purpose of the PDPA and state THREE obligations it places on organisations.",
      model:"The PDPA governs how organisations <b>collect, use and disclose</b> personal data, protecting individuals while allowing legitimate use, to maintain trust in the digital economy. Any three obligations, e.g. <b>Consent</b> (get permission before collecting), <b>Purpose Limitation</b> (only use for stated purposes), <b>Protection</b> (secure the data), <b>Access &amp; Correction</b>, <b>Retention Limitation</b>, <b>Data Breach Notification</b>."}
   ]

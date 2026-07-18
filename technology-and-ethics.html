@@ -103,6 +103,7 @@ details.exp .body{padding:0 16px 16px;color:var(--mut);font-size:.92rem}
 .choice.wrong{border-color:var(--bad);background:rgba(248,98,77,.1)}
 .choice.wrong .mk{background:var(--bad);color:#2b0603;border-color:var(--bad)}
 .choice.locked{cursor:default;opacity:.85}
+.choice.wrong{cursor:not-allowed}
 .fb{margin-top:14px;padding:13px 15px;border-radius:10px;font-size:.9rem;display:none}
 .fb.show{display:block}
 .fb.ok{background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.4)}
@@ -388,8 +389,32 @@ function syncCompletionFromPersisted(){
   Object.entries(persistedState.completedKeys || {}).forEach(([k,v])=>{ if(v) state[k]=true; });
 }
 
-function rememberScenario(key, selectedIndex, correct){
-  persistedState.responses.scenarios[key] = {selectedIndex, correct};
+function attemptEntry(store, key){
+  const entry = store[key] || {wrongIndices:[], attempts:0};
+  if(!Array.isArray(entry.wrongIndices)){
+    entry.wrongIndices = (entry.correct===false && Number.isInteger(entry.selectedIndex)) ? [entry.selectedIndex] : [];
+  }
+  if(!Number.isFinite(entry.attempts)){
+    entry.attempts = entry.wrongIndices.length + (entry.correct?1:0);
+  }
+  return entry;
+}
+
+function recordAttempt(store, key, selectedIndex, correct){
+  const entry = attemptEntry(store, key);
+  entry.attempts++;
+  entry.selectedIndex = selectedIndex;
+  entry.correct = correct;
+  if(!correct && !entry.wrongIndices.includes(selectedIndex)) entry.wrongIndices.push(selectedIndex);
+  store[key] = entry;
+  return entry;
+}
+
+function savedWrongIndices(saved){
+  if(!saved) return [];
+  if(Array.isArray(saved.wrongIndices)) return saved.wrongIndices;
+  if(saved.correct===false && Number.isInteger(saved.selectedIndex)) return [saved.selectedIndex];
+  return [];
 }
 
 function rememberMatch(key, placement, checked, correctCount){
@@ -398,10 +423,6 @@ function rememberMatch(key, placement, checked, correctCount){
     checked:Boolean(checked),
     correctCount: correctCount ?? null
   };
-}
-
-function rememberQuizMcq(key, selectedIndex, correct){
-  persistedState.responses.quiz.mcq[key] = {selectedIndex, correct};
 }
 
 function rememberQuizShort(key, patch){
@@ -605,34 +626,52 @@ function buildScenario(m, act, actIdx){
     const ch = el('div','choices');
     const fb = el('div','fb');
     const responseKey = k+':card'+cardIdx;
-    function applyChoice(selectedIndex, fromRestore){
-      if(c.dataset.locked) return;
+    function showCorrectState(selectedIndex){
       c.dataset.locked='1';
       ch.querySelectorAll('.choice').forEach(x=>x.classList.add('locked'));
-      const b = ch.children[selectedIndex];
-      const opt = card.choices[selectedIndex];
-      b.classList.add(opt.correct?'correct':'wrong');
-      if(!opt.correct){
-        card.choices.forEach((o2,j)=>{ if(o2.correct) ch.children[j].classList.add('correct'); });
-      }
-      fb.className='fb show '+(opt.correct?'ok':'no');
-      fb.innerHTML='<b>'+(opt.correct?'Correct. ':'Not quite. ')+'</b>'+(opt.correct?card.ok:card.no);
+      const cb = ch.children[selectedIndex];
+      if(cb) cb.classList.add('correct');
+      fb.className='fb show ok';
+      fb.innerHTML='<b>Correct. </b>'+card.ok;
       answered++;
-      rememberScenario(responseKey, selectedIndex, opt.correct);
-      if(!fromRestore) queueSave();
       if(answered>=total) markDone(k);
+    }
+    function showWrongNudge(selectedIndex){
+      const opt = Number.isInteger(selectedIndex) ? card.choices[selectedIndex] : null;
+      const why = opt && opt.whyNot ? opt.whyNot+' ' : '';
+      fb.className='fb show no';
+      fb.innerHTML='<b>Not quite. </b>'+why+'Rule this option out and try again.';
+    }
+    function applyChoice(selectedIndex){
+      if(c.dataset.locked) return;
+      const b = ch.children[selectedIndex];
+      if(b.classList.contains('wrong')) return;
+      const opt = card.choices[selectedIndex];
+      recordAttempt(persistedState.responses.scenarios, responseKey, selectedIndex, opt.correct);
+      if(opt.correct){
+        showCorrectState(selectedIndex);
+      } else {
+        b.classList.add('wrong');
+        showWrongNudge(selectedIndex);
+      }
+      queueSave();
     }
     card.choices.forEach((opt,oi)=>{
       const b = el('button','choice');
       b.innerHTML='<span class="mk">'+String.fromCharCode(65+oi)+'</span><span>'+opt.t+'</span>';
-      b.onclick=()=>applyChoice(oi,false);
+      b.onclick=()=>applyChoice(oi);
       ch.appendChild(b);
     });
     c.appendChild(ch);c.appendChild(fb);
     wrap.appendChild(c);
     const saved = persistedState.responses.scenarios[responseKey];
-    if(saved && Number.isInteger(saved.selectedIndex)){
-      applyChoice(saved.selectedIndex,true);
+    if(saved){
+      savedWrongIndices(saved).forEach(i=>{ const wb=ch.children[i]; if(wb) wb.classList.add('wrong'); });
+      if(saved.correct && Number.isInteger(saved.selectedIndex)){
+        showCorrectState(saved.selectedIndex);
+      } else if(savedWrongIndices(saved).length){
+        showWrongNudge(Number.isInteger(saved.selectedIndex) ? saved.selectedIndex : savedWrongIndices(saved).slice(-1)[0]);
+      }
     }
   });
   return wrap;
@@ -783,29 +822,51 @@ function buildQuiz(m){
       block.appendChild(el('div','qmeta','Multiple choice: pick one'));
       const ch = el('div','choices');
       const fb = el('div','fb');
-      function applyMcq(selectedIndex, fromRestore){
-        if(block.dataset.locked)return;
+      function showMcqCorrect(selectedIndex, firstTry){
         block.dataset.locked='1';
         ch.querySelectorAll('.choice').forEach(x=>x.classList.add('locked'));
-        const ok = selectedIndex===qq.ans;
-        const chosen = ch.children[selectedIndex];
-        chosen.classList.add(ok?'correct':'wrong');
-        if(!ok) ch.children[qq.ans].classList.add('correct');
-        fb.className='fb show '+(ok?'ok':'no');
-        fb.innerHTML='<b>'+(ok?'Correct. ':'Not quite. ')+'</b>'+qq.why;
-        rememberQuizMcq(qKey, selectedIndex, ok);
-        if(ok)mcqCorrect++;
+        const cb = ch.children[selectedIndex];
+        if(cb) cb.classList.add('correct');
+        fb.className='fb show ok';
+        fb.innerHTML='<b>Correct. </b>'+qq.why;
+        if(firstTry) mcqCorrect++;
         mcqAnswered++;
-        if(!fromRestore){ queueSave(); tally(); }
+      }
+      function showMcqNudge(selectedIndex){
+        const why = (qq.wrongWhy && qq.wrongWhy[selectedIndex]) ? qq.wrongWhy[selectedIndex]+' ' : '';
+        fb.className='fb show no';
+        fb.innerHTML='<b>Not quite. </b>'+why+'Rule this option out and try again.';
+      }
+      function applyMcq(selectedIndex){
+        if(block.dataset.locked)return;
+        const b = ch.children[selectedIndex];
+        if(b.classList.contains('wrong')) return;
+        const ok = selectedIndex===qq.ans;
+        const entry = recordAttempt(persistedState.responses.quiz.mcq, qKey, selectedIndex, ok);
+        if(ok){
+          showMcqCorrect(selectedIndex, entry.attempts===1);
+          queueSave(); tally();
+        } else {
+          b.classList.add('wrong');
+          showMcqNudge(selectedIndex);
+          queueSave();
+        }
       }
       qq.opts.forEach((opt,oi)=>{
         const b=el('button','choice','<span class="mk">'+String.fromCharCode(65+oi)+'</span><span>'+opt+'</span>');
-        b.onclick=()=>applyMcq(oi,false);
+        b.onclick=()=>applyMcq(oi);
         ch.appendChild(b);
       });
       block.appendChild(ch);block.appendChild(fb);
       const savedMcq = persistedState.responses.quiz.mcq[qKey];
-      if(savedMcq && Number.isInteger(savedMcq.selectedIndex)) applyMcq(savedMcq.selectedIndex,true);
+      if(savedMcq){
+        savedWrongIndices(savedMcq).forEach(i=>{ const wb=ch.children[i]; if(wb) wb.classList.add('wrong'); });
+        if(savedMcq.correct && Number.isInteger(savedMcq.selectedIndex)){
+          showMcqCorrect(savedMcq.selectedIndex, (savedMcq.attempts||1)===1);
+        } else if(savedWrongIndices(savedMcq).length){
+          showMcqNudge(Number.isInteger(savedMcq.selectedIndex) ? savedMcq.selectedIndex : savedWrongIndices(savedMcq).slice(-1)[0]);
+        }
+      }
     } else {
       shortTotal++;
       block.appendChild(el('div','qmeta','Short answer: write, then compare with the model answer'));
@@ -860,7 +921,7 @@ function buildQuiz(m){
     const shortDone = shortConfirmed>=shortTotal;
     if(mcqDone && shortDone){
       res.classList.add('show');
-      let msg = '<div class="score">'+mcqCorrect+' / '+mcqTotal+'</div><div>multiple-choice correct</div>';
+      let msg = '<div class="score">'+mcqCorrect+' / '+mcqTotal+'</div><div>multiple-choice correct on the first try</div>';
       if(shortTotal>0) msg+='<div style="margin-top:8px;color:var(--mut)">Short-answer questions reviewed against the model answers. ✔</div>';
       res.innerHTML = msg;
       markDone(k);

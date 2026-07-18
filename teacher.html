@@ -95,6 +95,15 @@
 
     function pickLetter(i){ return String.fromCharCode(65+i); }
 
+    function attemptBadge(saved){
+      const wrongs = Array.isArray(saved.wrongIndices) ? saved.wrongIndices.length : (saved.correct===false ? 1 : 0);
+      const att = Number.isFinite(saved.attempts) ? saved.attempts : wrongs + (saved.correct ? 1 : 0);
+      if(saved.correct){
+        return '<span class="badge ok">'+(att<=1?'Correct (first try)':'Correct (attempt '+att+')')+'</span>';
+      }
+      return '<span class="badge no">Not yet correct ('+att+' attempt'+(att===1?'':'s')+')</span>';
+    }
+
     // Build a readable report for one student's state using the shared content data.
     function renderStudentDetail(state){
       const r = (state && state.responses) || {};
@@ -122,7 +131,7 @@
               const choice = card.choices[saved.selectedIndex];
               block += '<div class="ans"><div class="q">Scenario: '+card.stem+'</div>'+
                 '<div class="a"><span>'+pickLetter(saved.selectedIndex)+'. '+(choice?choice.t:'?')+'</span>'+
-                '<span class="badge '+(saved.correct?'ok':'no')+'">'+(saved.correct?'Correct':'Incorrect')+'</span></div></div>';
+                attemptBadge(saved)+'</div></div>';
             });
           } else if(act.type==='match'){
             const saved = matches[actKey];
@@ -151,7 +160,7 @@
             if(!saved || !Number.isInteger(saved.selectedIndex)) return;
             block += '<div class="ans"><div class="q">Quiz: '+qq.q+'</div>'+
               '<div class="a"><span>'+pickLetter(saved.selectedIndex)+'. '+(qq.opts[saved.selectedIndex]||'?')+'</span>'+
-              '<span class="badge '+(saved.correct?'ok':'no')+'">'+(saved.correct?'Correct':'Incorrect')+'</span></div></div>';
+              attemptBadge(saved)+'</div></div>';
           } else {
             const saved = short[qKey];
             if(!saved || (!saved.text && !saved.revealed && !saved.assessment)) return;
