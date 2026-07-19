@@ -1,5 +1,5 @@
 /* ============ NOSQL / MONGODB CONTENT DATA (grounded in 9569 syllabus, LO 3.3.6, 3.3.7, 3.3.8) ============ */
-const MODULES = [
+var MODULES = [
 /* ---------- MODULE 1: WHY NOSQL? ---------- */
 {
   id:"why", num:"1", title:"Why NoSQL?",
@@ -460,7 +460,7 @@ else:
 ];
 
 /* ============ FINAL CHALLENGE ============ */
-const CHALLENGE = {
+var CHALLENGE = {
   timerMins: 30,
   sectionA: [
     {topic:"Topic 2 and 4 · Documents",
@@ -609,3 +609,9 @@ __result["passed"] = marks == 9`,
     ]
   }
 };
+
+/* Self-registration so teacher.html can load every module's data without global collisions. */
+if (typeof window !== "undefined") {
+  window.MODULE_REGISTRY = window.MODULE_REGISTRY || {};
+  window.MODULE_REGISTRY["nosql"] = { MODULES: MODULES, CHALLENGE: CHALLENGE, label: "NoSQL with MongoDB", page: "nosql.html" };
+}

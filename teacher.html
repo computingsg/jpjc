@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Teacher Review | Technology &amp; Ethics</title>
+  <title>Teacher Review | JPJC Computing</title>
   <style>
     :root{
       --bg:#0d1117; --bg2:#161b22; --bg3:#1f2632; --line:#2b3441;
@@ -80,6 +80,13 @@
     details.raw summary{cursor:pointer;color:var(--mut);font-size:.85rem}
     pre{margin:10px 0 0;padding:14px;border-radius:12px;background:#0a0f14;border:1px solid var(--line);overflow:auto;color:#d6e2ef;font-size:.8rem}
     .nothing{color:var(--mut);font-size:.9rem;font-style:italic}
+    .modtabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+    .modtabs button{font:inherit;font-weight:700;padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:var(--bg3);color:var(--mut);cursor:pointer;transition:.15s}
+    .modtabs button:hover{color:var(--txt)}
+    .modtabs button.active{background:var(--accent);color:#07121a;border-color:var(--accent)}
+    .code-text{margin:6px 0 0;padding:10px 12px;border-left:3px solid var(--accent2);background:#0a0f14;border-radius:6px;color:#d6e2ef;white-space:pre;overflow-x:auto;font-family:Consolas,Menlo,monospace;font-size:.82rem;line-height:1.5}
+    .critline{display:flex;gap:8px;justify-content:space-between;align-items:baseline;padding:3px 0;font-size:.88rem}
+    .critline .t{color:var(--mut)}
     .hidden{display:none!important}
   </style>
 </head>
@@ -87,11 +94,12 @@
   <div class="wrap">
     <section class="hero">
       <h1>Teacher Review Dashboard</h1>
-      <p>Class overview and individual responses for the Technology &amp; Ethics module. Access is limited to allowlisted teacher accounts.</p>
+      <p>Class overview and individual responses, per module. Access is limited to allowlisted teacher accounts.</p>
+      <div class="modtabs" id="modTabs"></div>
       <div class="row">
         <div class="pill" id="teacherStatus">Checking teacher access...</div>
         <div class="row" style="margin-top:0">
-          <a class="btn secondary" href="technology-and-ethics.html" style="text-decoration:none">Back to Module</a>
+          <a class="btn secondary" id="backToModule" href="technology-and-ethics.html" style="text-decoration:none">Back to Module</a>
           <button class="btn" id="refreshBtn" type="button">Refresh</button>
         </div>
       </div>
@@ -136,6 +144,7 @@
             <th class="sortable" data-key="name">Name<span class="arrow"></span></th>
             <th class="sortable num" data-key="done">Progress<span class="arrow"></span></th>
             <th class="sortable num" data-key="mcqFirst">Quiz first-try<span class="arrow"></span></th>
+            <th class="sortable num" data-key="code">Code passed<span class="arrow"></span></th>
             <th class="sortable num" data-key="chScore">Check score<span class="arrow"></span></th>
             <th class="sortable" data-key="updated">Last active<span class="arrow"></span></th>
             <th></th>
@@ -154,8 +163,14 @@
   </div>
 
   <script src="content-data.js"></script>
+  <script src="socket-data.js"></script>
+  <script src="nosql-data.js"></script>
   <script>
-    const MODULE_SLUG = "technology-and-ethics";
+    const MODULE_ORDER = ["technology-and-ethics", "socket-programming", "nosql"];
+    const REGISTRY = window.MODULE_REGISTRY || {};
+    let currentSlug = "technology-and-ethics";
+    const MODS = () => REGISTRY[currentSlug].MODULES;
+    const CHAL = () => REGISTRY[currentSlug].CHALLENGE;
     const teacherStatus = document.getElementById("teacherStatus");
     const errorBox = document.getElementById("errorBox");
     const emptyBox = document.getElementById("emptyBox");
@@ -169,11 +184,21 @@
       return String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
     }
     const schemeSum = q => q.scheme.reduce((x,s)=>x+s.m,0);
-    const TOTAL_ACTIVITIES = MODULES.reduce((n,m)=>n+(m.activities||[]).length+((m.quiz&&m.quiz.length)?1:0),0) + 1;
-    const TOTAL_MCQS = MODULES.reduce((n,m)=>n+(m.quiz||[]).filter(q=>q.type==='mcq').length,0);
-    const CH_TOTAL = CHALLENGE.sectionA.length + CHALLENGE.sectionB.reduce((x,q)=>x+schemeSum(q),0);
+    const totalActivities = () => MODS().reduce((n,m)=>n+(m.activities||[]).length+((m.quiz&&m.quiz.length)?1:0),0) + 1;
+    const chTotal = () => CHAL().sectionA.length + CHAL().sectionB.reduce((x,q)=>x+schemeSum(q),0) + (CHAL().sectionC?CHAL().sectionC.marks:0);
+    const codeTotal = () => MODS().reduce((n,m)=>n+(m.activities||[]).filter(a=>a.type==='code').length,0);
     function pickLetter(i){ return String.fromCharCode(65+i); }
     function pct(n,d){ return d? Math.round(n/d*100) : 0; }
+
+    // ---- module tabs ----
+    function renderTabs(){
+      document.getElementById('modTabs').innerHTML = MODULE_ORDER.map(slug=>
+        '<button type="button" data-slug="'+slug+'" class="'+(slug===currentSlug?'active':'')+'">'+escapeHtml(REGISTRY[slug].label)+'</button>').join('');
+      document.getElementById('backToModule').href = REGISTRY[currentSlug].page;
+      document.querySelectorAll('#modTabs button').forEach(b=>{
+        b.addEventListener('click', ()=>{ location.hash = '#module='+b.dataset.slug; });
+      });
+    }
 
     function attemptsOf(saved){
       if(!saved) return 0;
@@ -195,6 +220,8 @@
       const r=state.responses||{};
       if(Object.keys(r.scenarios||{}).length) return true;
       if(Object.keys(r.matches||{}).length) return true;
+      if(Object.keys(r.widgets||{}).length) return true;
+      if(Object.values(r.code||{}).some(c=>c && (c.code||'').trim())) return true;
       const q=r.quiz||{};
       if(Object.keys(q.mcq||{}).length || Object.keys(q.short||{}).length) return true;
       if((r.challenge||{}).started) return true;
@@ -206,17 +233,29 @@
       const r=(state&&state.responses)||{};
       const mcqStore=(r.quiz||{}).mcq||{};
       let mcqFirst=0, mcqEven=0, mcqTried=0;
-      MODULES.forEach(m=>(m.quiz||[]).forEach((q,qi)=>{
+      MODS().forEach(m=>(m.quiz||[]).forEach((q,qi)=>{
         if(q.type!=='mcq')return;
         const s=mcqStore[m.id+'-quiz:q'+qi];
         if(!s || attemptsOf(s)===0) return;
         mcqTried++;
         if(s.correct){ mcqEven++; if(attemptsOf(s)<=1) mcqFirst++; }
       }));
+      let codeTried=0, codePassed=0, teachUses=0;
+      MODS().forEach(m=>(m.activities||[]).forEach((act,ai)=>{
+        if(act.type!=='code') return;
+        const c=(r.code||{})[m.id+'-act'+ai];
+        if(!c) return;
+        if((c.code||'').trim()) codeTried++;
+        if(c.passed) codePassed++;
+        if(c.teachUsed) teachUses++;
+      }));
       const ch=r.challenge||{};
+      const sc=ch.sectionC||{};
+      if(sc.teachUsed) teachUses++;
       return {
-        done, donePct:pct(done,TOTAL_ACTIVITIES),
+        done, donePct:pct(done,totalActivities()),
         mcqTried, mcqFirst, mcqEven,
+        codeTried, codePassed, teachUses,
         chSubmitted:Boolean(ch.submitted),
         chScore:Number.isFinite(ch.score)?ch.score:null
       };
@@ -225,7 +264,7 @@
     // ---- item definitions for question analysis ----
     function buildItemDefs(){
       const items=[]; let order=0;
-      MODULES.forEach(m=>{
+      MODS().forEach(m=>{
         (m.activities||[]).forEach((act,ai)=>{
           const actKey=m.id+'-act'+ai;
           if(act.type==='scenario'){
@@ -242,6 +281,18 @@
                 if(!v||!v.placement||!Object.keys(v.placement).length) return null;
                 const frac=v.checked&&Number.isFinite(v.correctCount)?v.correctCount/total:null;
                 return {first:null, even:frac}; }});
+          } else if(act.type==='steps'||act.type==='order'||act.type==='bytes'){
+            const kindLabel = act.type==='steps'?'Walkthrough':act.type==='order'?'Builder':'Lab';
+            items.push({order:order++, label:'T'+m.num+' '+kindLabel, text:act.title, kind:'widget',
+              extract:s=>{ const done=Boolean((((s||{}).completedKeys)||{})[actKey]);
+                const w=((((s||{}).responses)||{}).widgets||{})[actKey];
+                if(!w && !done) return null;
+                return {first:null, even:done?1:0}; }});
+          } else if(act.type==='code'){
+            items.push({order:order++, label:'T'+m.num+' Code', text:act.title, kind:'code',
+              extract:s=>{ const c=((((s||{}).responses)||{}).code||{})[actKey];
+                if(!c || !((c.code||'').trim())) return null;
+                return {first:null, even:c.passed?1:0, teach:c.teachUsed?1:0}; }});
           }
         });
         (m.quiz||[]).forEach((q,qi)=>{
@@ -252,7 +303,7 @@
               return {first:Boolean(v.correct&&attemptsOf(v)<=1), even:v.correct?1:0}; }});
         });
       });
-      CHALLENGE.sectionA.forEach((q,i)=>{
+      CHAL().sectionA.forEach((q,i)=>{
         items.push({order:order++, label:'Check A'+(i+1), text:q.q, kind:'oneshot',
           extract:s=>{ const ch=((s||{}).responses||{}).challenge||{};
             if(!ch.submitted) return null;
@@ -261,9 +312,20 @@
             const ok=sel===q.ans?1:0;
             return {first:Boolean(ok), even:ok}; }});
       });
+      if(CHAL().sectionC){
+        const cMax = CHAL().sectionC.marks;
+        items.push({order:order++, label:'Check C', text:CHAL().sectionC.q, kind:'code',
+          extract:s=>{ const sc=(((s||{}).responses||{}).challenge||{}).sectionC||{};
+            if(!Number.isFinite(sc.marks) && !((sc.code||'').trim())) return null;
+            return {first:null, even:Number.isFinite(sc.marks)? sc.marks/cMax : 0, teach:sc.teachUsed?1:0}; }});
+      }
       return items;
     }
-    const ITEM_DEFS = buildItemDefs();
+    const itemDefsCache = {};
+    function ITEM_DEFS(){
+      if(!itemDefsCache[currentSlug]) itemDefsCache[currentSlug] = buildItemDefs();
+      return itemDefsCache[currentSlug];
+    }
 
     // ---- state ----
     let allRows = [];
@@ -276,17 +338,18 @@
     }
 
     function analyseItems(rows){
-      return ITEM_DEFS.map(def=>{
-        let attempted=0, first=0, evenSum=0, evenN=0;
+      return ITEM_DEFS().map(def=>{
+        let attempted=0, first=0, evenSum=0, evenN=0, teachN=0;
         rows.forEach(r=>{
           const x=def.extract(r.state);
           if(!x) return;
           attempted++;
           if(x.first) first++;
+          if(x.teach) teachN++;
           if(x.even!==null && x.even!==undefined){ evenSum+=x.even; evenN++; }
         });
-        return {def, attempted,
-          firstPct: def.kind==='match' ? null : (attempted?pct(first,attempted):null),
+        return {def, attempted, teachN,
+          firstPct: (def.kind==='match'||def.kind==='widget'||def.kind==='code') ? null : (attempted?pct(first,attempted):null),
           evenPct: evenN?Math.round(evenSum/evenN*100):null};
       });
     }
@@ -299,16 +362,22 @@
       const avgFirst = triedMcq.length? Math.round(triedMcq.reduce((x,r)=>x+pct(r.m.mcqFirst,r.m.mcqTried),0)/triedMcq.length) : null;
       const subs = rows.filter(r=>r.m.chSubmitted);
       const avgScore = subs.length? (subs.reduce((x,r)=>x+(r.m.chScore||0),0)/subs.length).toFixed(1) : null;
-      const completed = rows.filter(r=>r.m.done>=TOTAL_ACTIVITIES).length;
-      document.getElementById('tiles').innerHTML = [
+      const completed = rows.filter(r=>r.m.done>=totalActivities()).length;
+      const tiles = [
         [''+rows.length,'Signed in'],
         [''+attempted.length,'Attempted'],
         [''+notAtt.length,'Not attempted'],
         [avgProg+'%','Avg progress (of attempters)'],
         [avgFirst===null?'-':avgFirst+'%','Avg quiz first-try'],
-        [subs.length+(avgScore!==null?' ('+avgScore+'/'+CH_TOTAL+' avg)':''),'Check submissions'],
+        [subs.length+(avgScore!==null?' ('+avgScore+'/'+chTotal()+' avg)':''),'Check submissions'],
         [''+completed,'Finished everything']
-      ].map(([v,l])=>'<div class="tile"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>').join('');
+      ];
+      if(codeTotal()>0){
+        const teachUsers = rows.filter(r=>r.m.teachUses>0).length;
+        tiles.push([''+teachUsers,'Used Teach me']);
+      }
+      document.getElementById('tiles').innerHTML = tiles
+        .map(([v,l])=>'<div class="tile"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>').join('');
 
       const wrapEl=document.getElementById('notAttemptedWrap');
       wrapEl.classList.toggle('hidden', notAtt.length===0);
@@ -336,7 +405,8 @@
       });
       document.querySelector('#itemTable tbody').innerHTML = sorted.map(s=>
         '<tr><td class="itemlabel">'+s.def.label+'</td>'+
-        '<td class="qtext">'+escapeHtml(s.def.text.slice(0,90))+(s.def.text.length>90?'...':'')+'</td>'+
+        '<td class="qtext">'+escapeHtml(s.def.text.replace(/<[^>]*>/g,'').slice(0,90))+(s.def.text.length>90?'...':'')+
+          (s.def.kind==='code'&&s.teachN?' <span class="badge info">&#128161; Teach me &times; '+s.teachN+'</span>':'')+'</td>'+
         '<td class="num">'+s.attempted+'</td>'+
         '<td class="num">'+(s.firstPct===null?'-':s.firstPct+'%')+'</td>'+
         '<td class="num">'+(s.evenPct===null?'-':s.evenPct+'%')+'</td></tr>').join('');
@@ -351,24 +421,29 @@
         if(key==='name') return (r.user.name||r.user.email||'').toLowerCase();
         if(key==='done') return r.m.done;
         if(key==='mcqFirst') return r.m.mcqTried? r.m.mcqFirst/r.m.mcqTried : -1;
+        if(key==='code') return r.m.codeTried? r.m.codePassed : -1;
         if(key==='chScore') return r.m.chScore===null? -1 : r.m.chScore;
         if(key==='updated') return r.updatedAt? Date.parse(r.updatedAt):0;
         return 0;
       };
       list.sort((a,b)=>{ const av=val(a),bv=val(b); return (av<bv?-1:av>bv?1:0)*dir; });
+      const studentHash = id => '#module='+currentSlug+'&student='+id;
       document.querySelector('#studentTable tbody').innerHTML = list.map(r=>{
         const roleTag = r.user.role==='teacher' ? ' <span class="badge info">teacher</span>' : '';
         const prog = hasWork(r.state)
-          ? '<div class="pcell"><div class="minibar"><div style="width:'+r.m.donePct+'%"></div></div>'+r.m.done+'/'+TOTAL_ACTIVITIES+'</div>'
+          ? '<div class="pcell"><div class="minibar"><div style="width:'+r.m.donePct+'%"></div></div>'+r.m.done+'/'+totalActivities()+'</div>'
           : '<span class="badge no">Not attempted</span>';
+        const codeCell = codeTotal()===0 ? '-' :
+          (r.m.codeTried? r.m.codePassed+'/'+codeTotal()+(r.m.teachUses?' &#128161;':'') : '-');
         return '<tr class="rowlink">'+
-          '<td><a href="#student='+r.user.id+'" style="text-decoration:none;color:var(--txt)"><b>'+escapeHtml(r.user.name||r.user.email)+'</b></a>'+roleTag+
+          '<td><a href="'+studentHash(r.user.id)+'" style="text-decoration:none;color:var(--txt)"><b>'+escapeHtml(r.user.name||r.user.email)+'</b></a>'+roleTag+
             '<div class="qtext">'+escapeHtml(r.user.email)+'</div></td>'+
           '<td class="num">'+prog+'</td>'+
           '<td class="num">'+(r.m.mcqTried? r.m.mcqFirst+'/'+r.m.mcqTried : '-')+'</td>'+
-          '<td class="num">'+(r.m.chScore===null?'-':r.m.chScore+'/'+CH_TOTAL)+'</td>'+
+          '<td class="num">'+codeCell+'</td>'+
+          '<td class="num">'+(r.m.chScore===null?'-':r.m.chScore+'/'+chTotal())+'</td>'+
           '<td>'+(r.updatedAt? new Date(r.updatedAt).toLocaleString() : '-')+'</td>'+
-          '<td><a href="#student='+r.user.id+'">View &rarr;</a></td></tr>';
+          '<td><a href="'+studentHash(r.user.id)+'">View &rarr;</a></td></tr>';
       }).join('');
       updateArrows('studentTable', studentSort);
     }
@@ -393,15 +468,16 @@
     function renderStudentDetail(state){
       const r = (state && state.responses) || {};
       const scen = r.scenarios || {}, matches = r.matches || {};
+      const widgets = r.widgets || {}, codeStore = r.code || {};
       const quiz = r.quiz || {}; const mcq = quiz.mcq || {}, short = quiz.short || {};
       const ch = r.challenge || {};
       const completed = (state&&state.completedKeys) || {};
       let html = '';
       const done = Object.values(completed).filter(Boolean).length;
-      const p = pct(done,TOTAL_ACTIVITIES);
+      const p = pct(done,totalActivities());
       html += '<div class="progress-line"><div class="pbar"><div style="width:'+p+'%"></div></div>'+
-              '<span class="plabel">'+done+' / '+TOTAL_ACTIVITIES+' activities ('+p+'%)</span></div>';
-      MODULES.forEach(m=>{
+              '<span class="plabel">'+done+' / '+totalActivities()+' activities ('+p+'%)</span></div>';
+      MODS().forEach(m=>{
         let block = '';
         (m.activities||[]).forEach((act,ai)=>{
           const actKey = m.id+'-act'+ai;
@@ -432,6 +508,26 @@
               : '<span class="badge info">Not checked yet</span>';
             block += '<div class="ans"><div class="q">Matching: '+act.title+'</div>'+
                      '<div class="a"><span></span>'+headBadge+'</div>'+rows+'</div>';
+          } else if(act.type==='steps'||act.type==='order'||act.type==='bytes'){
+            const w = widgets[actKey];
+            const doneW = Boolean(completed[actKey]);
+            if(!w && !doneW) return;
+            const kindLabel = act.type==='steps'?'Walkthrough':act.type==='order'?'Program builder':'Encoding lab';
+            let extra='';
+            if(act.type==='order' && w) extra = (w.placed??'?')+' line'+((w.placed===1)?'':'s')+' placed'+(Number.isFinite(w.mistakes)&&w.mistakes>0?', '+w.mistakes+' wrong tap'+(w.mistakes>1?'s':''):'');
+            if(act.type==='steps' && w) extra = 'reached step '+((w.step??0)+1);
+            block += '<div class="ans"><div class="q">'+kindLabel+': '+act.title+'</div>'+
+              '<div class="a"><span>'+escapeHtml(extra)+'</span>'+
+              '<span class="badge '+(doneW?'ok':'info')+'">'+(doneW?'Completed':'In progress')+'</span></div></div>';
+          } else if(act.type==='code'){
+            const c = codeStore[actKey];
+            if(!c || (!((c.code||'').trim()) && !c.passed)) return;
+            const badges = (c.passed?'<span class="badge ok">Checks passed</span>':'<span class="badge no">Not passed yet</span>')+
+              (c.teachUsed?' <span class="badge info">&#128161; Teach me used</span>':'');
+            block += '<div class="ans"><div class="q">Code exercise: '+act.title+'</div>'+
+              '<div class="a"><span></span><span>'+badges+'</span></div>'+
+              ((c.code||'').trim()? '<pre class="code-text">'+escapeHtml(c.code)+'</pre>' : '<div class="nothing">No code saved.</div>')+
+              '</div>';
           }
         });
         (m.quiz||[]).forEach((qq,qi)=>{
@@ -460,19 +556,21 @@
       if(ch.started || ch.submitted){
         let block = '';
         if(ch.submitted){
-          block += '<div class="score-line">'+(ch.score??'?')+' / '+CH_TOTAL+' marks'+
+          block += '<div class="score-line">'+(ch.score??'?')+' / '+chTotal()+' marks'+
                    (Number.isFinite(ch.pct)?' &middot; '+ch.pct+'%':'')+
                    (ch.grade?'<span class="grade">Grade '+ch.grade+'</span>':'')+'</div>';
           if(Number.isFinite(ch.sectionAScore)||Number.isFinite(ch.sectionBScore)){
-            block += '<div class="ans"><div class="a"><span>Section A: '+(ch.sectionAScore??'?')+' / '+CHALLENGE.sectionA.length+
-                     ' &middot; Section B (self-marked): '+(ch.sectionBScore??'?')+' / '+CHALLENGE.sectionB.reduce((x,q)=>x+schemeSum(q),0)+'</span></div></div>';
+            const scPart = CHAL().sectionC && Number.isFinite((ch.sectionC||{}).marks)
+              ? ' &middot; Section C (auto-marked): '+ch.sectionC.marks+' / '+CHAL().sectionC.marks : '';
+            block += '<div class="ans"><div class="a"><span>Section A: '+(ch.sectionAScore??'?')+' / '+CHAL().sectionA.length+
+                     ' &middot; Section B (self-marked): '+(ch.sectionBScore??'?')+' / '+CHAL().sectionB.reduce((x,q)=>x+schemeSum(q),0)+scPart+'</span></div></div>';
           }
         } else {
           block += '<div class="ans"><div class="a"><span>Started ('+(ch.timerMode==='timed'?'timed mode':'practice mode')+'), not yet submitted.</span>'+
                    '<span class="badge info">In progress</span></div></div>';
         }
         const sectionA = ch.sectionA || {};
-        CHALLENGE.sectionA.forEach((q,i)=>{
+        CHAL().sectionA.forEach((q,i)=>{
           const sel = sectionA[i] ?? sectionA[String(i)];
           if(!Number.isInteger(sel)) return;
           const ok = sel===q.ans;
@@ -481,16 +579,35 @@
             '<span class="badge '+(ok?'ok':'no')+'">'+(ok?'Correct':'Incorrect')+'</span></div></div>';
         });
         const texts = ch.sectionBTexts || {}; const checks = ch.schemeChecks || {};
-        CHALLENGE.sectionB.forEach((q,i)=>{
+        CHAL().sectionB.forEach((q,i)=>{
           const text = texts[i] ?? texts[String(i)];
           const ticked = checks[i] ?? checks[String(i)] ?? [];
           if(!text && !(Array.isArray(ticked)&&ticked.length)) return;
           const marks = Array.isArray(ticked) ? ticked.reduce((x,idx)=>x+((q.scheme[idx]||{}).m||0),0) : 0;
-          block += '<div class="ans"><div class="q">'+(i+6)+'. ['+q.topic+'] '+q.q+'</div>'+
+          block += '<div class="ans"><div class="q">'+(i+CHAL().sectionA.length+1)+'. ['+q.topic+'] '+q.q+'</div>'+
             '<div class="a"><span></span><span class="badge '+(marks>0?'ok':'info')+'">Self-marked: '+marks+' / '+schemeSum(q)+'</span></div>'+
             (text ? '<div class="student-text">'+escapeHtml(text)+'</div>' : '<div class="nothing">No written answer.</div>')+
             '</div>';
         });
+        if(CHAL().sectionC){
+          const sc = ch.sectionC || {};
+          if(Number.isFinite(sc.marks) || ((sc.code||'').trim())){
+            const cMax = CHAL().sectionC.marks;
+            let critRows='';
+            (Array.isArray(sc.crit)?sc.crit:[]).forEach(c=>{
+              const full=c[1]>=c[2], none=c[1]<=0;
+              critRows += '<div class="critline"><span class="t">'+escapeHtml(c[0])+'</span>'+
+                '<span class="badge '+(full?'ok':(none?'no':'info'))+'">'+c[1]+' / '+c[2]+'</span></div>';
+            });
+            block += '<div class="ans"><div class="q">Section C (programming task): '+CHAL().sectionC.q+'</div>'+
+              '<div class="a"><span></span><span>'+
+              (Number.isFinite(sc.marks)?'<span class="badge '+(sc.marks>=cMax?'ok':(sc.marks>0?'info':'no'))+'">Auto-marked: '+sc.marks+' / '+cMax+'</span>':'<span class="badge info">Not run</span>')+
+              (sc.teachUsed?' <span class="badge info">&#128161; Teach me used</span>':'')+
+              '</span></div>'+critRows+
+              (((sc.code||'').trim())? '<pre class="code-text">'+escapeHtml(sc.code)+'</pre>' : '<div class="nothing">No code saved.</div>')+
+              '</div>';
+          }
+        }
         html += '<div class="topic"><h3>Knowledge and Understanding Check</h3>'+block+'</div>';
       }
       if(html.indexOf('class="topic"')===-1){
@@ -511,13 +628,26 @@
         '<details class="raw"><summary>Raw saved data (JSON)</summary><pre>'+escapeHtml(JSON.stringify(r.state,null,2))+'</pre></details>';
     }
 
-    // ---- routing ----
-    function route(){
-      const m = location.hash.match(/^#student=(\d+)$/);
-      if(m && allRows.length){
+    // ---- routing (module-aware: #module=<slug>&student=<id>) ----
+    function parseHash(){
+      const params = new URLSearchParams(location.hash.slice(1));
+      return { module: params.get('module'), student: params.get('student') };
+    }
+    async function route(){
+      const h = parseHash();
+      if(h.module && REGISTRY[h.module] && h.module!==currentSlug){
+        currentSlug = h.module;
+      }
+      renderTabs();
+      if(!cache[currentSlug]){
+        try{ await loadResponses(); }
+        catch(err){ showError(err.message); return; }
+      }
+      allRows = cache[currentSlug];
+      if(h.student && allRows.length){
         overviewView.classList.add('hidden');
         detailView.classList.remove('hidden');
-        renderDetail(Number(m[1]));
+        renderDetail(Number(h.student));
       } else {
         detailView.classList.add('hidden');
         overviewView.classList.remove('hidden');
@@ -525,7 +655,7 @@
       }
     }
     window.addEventListener('hashchange', route);
-    document.getElementById('backLink').addEventListener('click', e=>{ e.preventDefault(); history.pushState('', '', location.pathname); route(); });
+    document.getElementById('backLink').addEventListener('click', e=>{ e.preventDefault(); location.hash='#module='+currentSlug; });
 
     // ---- sorting + filters ----
     document.querySelectorAll('#studentTable th.sortable').forEach(th=>{
@@ -545,7 +675,8 @@
     document.getElementById('searchBox').addEventListener('input', ()=>renderStudentTable(includedRows()));
     document.getElementById('inclTeachers').addEventListener('change', renderOverview);
 
-    // ---- data loading ----
+    // ---- data loading (cached per module) ----
+    const cache = {};
     async function loadResponses(){
       clearError();
       teacherStatus.textContent = "Loading teacher view...";
@@ -558,19 +689,18 @@
         throw new Error("This dashboard is only available to allowlisted teacher accounts.");
       }
       teacherStatus.textContent = `Signed in as ${meData.user.name} (${meData.user.email})`;
-      const resp = await fetch(`/api/teacher/responses?module=${encodeURIComponent(MODULE_SLUG)}`, { credentials: "include" });
+      const resp = await fetch(`/api/teacher/responses?module=${encodeURIComponent(currentSlug)}`, { credentials: "include" });
       const data = await resp.json();
       if(!resp.ok){
         throw new Error(data.error || "Unable to load teacher responses.");
       }
-      allRows = (data.responses||[]).map(item=>({
+      cache[currentSlug] = (data.responses||[]).map(item=>({
         user:item.user, state:item.state||null, updatedAt:item.updatedAt||null,
         m:studentMetrics(item.state||null)
       }));
-      route();
     }
-    refreshBtn.addEventListener("click", ()=>{ loadResponses().catch(err=>showError(err.message)); });
-    loadResponses().catch(err=>showError(err.message));
+    refreshBtn.addEventListener("click", ()=>{ delete cache[currentSlug]; route(); });
+    route();
   </script>
 </body>
 </html>

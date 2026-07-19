@@ -1,5 +1,5 @@
 /* ============ SOCKET PROGRAMMING CONTENT DATA (grounded in 9569 syllabus, LO 4.1.2, 4.1.3, 4.1.5, 4.1.6) ============ */
-const MODULES = [
+var MODULES = [
 /* ---------- MODULE 1: WHAT IS A SOCKET? ---------- */
 {
   id:"whatis", num:"1", title:"Sharing Data Between Programs",
@@ -514,7 +514,7 @@ else:
 ];
 
 /* ============ FINAL CHALLENGE ============ */
-const CHALLENGE = {
+var CHALLENGE = {
   timerMins: 30,
   sectionA: [
     {topic:"Topic 4 · str, bytes and UTF-8",
@@ -664,3 +664,9 @@ __result["passed"] = marks == 9`,
     ]
   }
 };
+
+/* Self-registration so teacher.html can load every module's data without global collisions. */
+if (typeof window !== "undefined") {
+  window.MODULE_REGISTRY = window.MODULE_REGISTRY || {};
+  window.MODULE_REGISTRY["socket-programming"] = { MODULES: MODULES, CHALLENGE: CHALLENGE, label: "Socket Programming", page: "socket.html" };
+}

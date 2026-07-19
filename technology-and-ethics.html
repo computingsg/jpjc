@@ -363,6 +363,7 @@ function updateAuthUI(){
     title.textContent = 'Signed in as '+authUser.name;
     text.textContent = 'Responses are saved to the server for self-review and teacher review.';
     signOutBtn.classList.remove('hidden');
+    document.getElementById('googleSignIn').classList.add('hidden');
     teacherLink.href = (appConfig && appConfig.teacherDashboardPath) || 'teacher.html';
     teacherLink.classList.toggle('hidden', authUser.role !== 'teacher');
     setAuthNote('Your work is being saved automatically.', 'ok');
@@ -370,6 +371,7 @@ function updateAuthUI(){
     title.textContent = 'Sign in to save your progress';
     text.textContent = 'Use your Google account to unlock activities and save responses for self-review and teacher review.';
     signOutBtn.classList.add('hidden');
+    document.getElementById('googleSignIn').classList.remove('hidden');
     teacherLink.classList.add('hidden');
     setAuthNote('Interactive work is locked until you sign in.', '');
   }

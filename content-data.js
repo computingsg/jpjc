@@ -1,5 +1,5 @@
 /* ============ CONTENT DATA (grounded in 9569 syllabus) ============ */
-const MODULES = [
+var MODULES = [
 /* ---------- MODULE 1: CODE OF ETHICS ---------- */
 {
   id:"ethics", num:"1", title:"Code of Ethics of a Computing Professional",
@@ -329,7 +329,7 @@ const MODULES = [
 ];
 
 /* ============ FINAL CHALLENGE (mixed, all topics) ============ */
-const CHALLENGE = {
+var CHALLENGE = {
   totalMarks: 25, timerMins: 25,
   sectionA: [
     {topic:"Ethics 3.4.1", q:"A software professional discovers a security flaw that could expose users' data, but fixing it will delay the launch. What does a code of ethics require?",
@@ -397,3 +397,9 @@ const CHALLENGE = {
      ]}
   ]
 };
+
+/* Self-registration so teacher.html can load every module's data without global collisions. */
+if (typeof window !== "undefined") {
+  window.MODULE_REGISTRY = window.MODULE_REGISTRY || {};
+  window.MODULE_REGISTRY["technology-and-ethics"] = { MODULES: MODULES, CHALLENGE: CHALLENGE, label: "Technology & Ethics", page: "technology-and-ethics.html" };
+}
